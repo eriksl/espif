@@ -22,5 +22,6 @@
 #include <sys/ioctl.h>
 #include <netinet/tcp.h>
 #include <openssl/evp.h>
+#include <math.h>
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
 #include <Magick++.h>

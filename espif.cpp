@@ -1282,7 +1282,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 	std::string reply;
 	unsigned char sector_buffer[flash_sector_size];
 	unsigned int start_x, start_y;
-	unsigned int current_buffer, x, y, r, g, b, l;
+	unsigned int current_buffer, x, y, l;
+	double r, g, b;
 	int current_sector;
 	struct timeval time_start, time_now;
 	int seconds, useconds;
@@ -1316,6 +1317,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		if(option_debug)
 			std::cout << "image loaded from " << filename << ", " << image.columns() << "x" << image.rows() << ", " << image.magick() << std::endl;
 
+		image.filterType(Magick::CubicFilter);
+
 		image.resize(newsize);
 
 		if((image.columns() != dim_x) || (image.rows() != dim_y))
@@ -1337,6 +1340,10 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 			{
 				colour = image.pixelColor(x, y);
 
+				r = colour.quantumRed()   / pow(2, image.modulusDepth());
+				g = colour.quantumGreen() / pow(2, image.modulusDepth());
+				b = colour.quantumBlue()  / pow(2, image.modulusDepth());
+
 				switch(depth)
 				{
 					case(1):
@@ -1348,7 +1355,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 							current_buffer -= (current_buffer / 8) * 8;
 						}
 
-						l = ((colour.quantumRed() + colour.quantumGreen() + colour.quantumBlue()) / 3) > (1 << 15);
+						//l = ((colour.quantumRed() + colour.quantumGreen() + colour.quantumBlue()) / 3) > (1 << 15);
+						l = 0; // FIXME
 
 						if(l)
 							sector_buffer[current_buffer / 8] |=  (1 << (7 - (current_buffer % 8)));
@@ -1362,11 +1370,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 					case(16):
 					{
+						unsigned int ru16, gu16, bu16;
 						unsigned int r1, g1, g2, b1;
-
-						r = colour.quantumRed() >> 11;
-						g = colour.quantumGreen() >> 10;
-						b = colour.quantumBlue() >> 11;
 
 						if((current_buffer + 2) > flash_sector_size)
 						{
@@ -1381,10 +1386,14 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 							start_y = y;
 						}
 
-						r1 = (r & 0b00011111) >> 0;
-						g1 = (g & 0b00111000) >> 3;
-						g2 = (g & 0b00000111) >> 0;
-						b1 = (b & 0b00011111) >> 0;
+						ru16 = r * ((1 << 5) - 1);
+						gu16 = g * ((1 << 6) - 1);
+						bu16 = b * ((1 << 5) - 1);
+
+						r1 = (ru16 & 0b00011111) >> 0;
+						g1 = (gu16 & 0b00111000) >> 3;
+						g2 = (gu16 & 0b00000111) >> 0;
+						b1 = (bu16 & 0b00011111) >> 0;
 
 						sector_buffer[current_buffer++] = (r1 << 3) | (g1 >> 0);
 						sector_buffer[current_buffer++] = (g2 << 5) | (b1 >> 0);
@@ -1394,9 +1403,12 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 					case(24):
 					{
-						r = colour.quantumRed() >> 8;
-						g = colour.quantumGreen() >> 8;
-						b = colour.quantumBlue() >> 8;
+						//r = colour.quantumRed() >> 8;
+						//g = colour.quantumGreen() >> 8;
+						//b = colour.quantumBlue() >> 8;
+						r = 0;
+						g = 0;
+						b = 0; // FIXME
 
 						if((current_buffer + 3) > flash_sector_size)
 						{
@@ -1586,19 +1598,19 @@ static void command_image_epaper(GenericSocket &command_channel, const std::stri
 
 					if(layer == 0)
 					{
-						if((colour.quantumRed() > 16384) && (colour.quantumGreen() > 16384) && (colour.quantumBlue() > 16384))
-						{
-							dummy_display[x][y] |= 0x01;
-							byte |= 1 << bit;
-						}
+						//if((colour.quantumRed() > 16384) && (colour.quantumGreen() > 16384) && (colour.quantumBlue() > 16384)) // FIXME
+						//{
+							//dummy_display[x][y] |= 0x01;
+							//byte |= 1 << bit;
+						//}
 					}
 					else
 					{
-						if((colour.quantumRed() > 16384) && (colour.quantumGreen() < 16384) && (colour.quantumBlue() < 16384))
-						{
-							dummy_display[x][y] |= 0x02;
-							byte |= 1 << bit;
-						}
+						//if((colour.quantumRed() > 16384) && (colour.quantumGreen() < 16384) && (colour.quantumBlue() < 16384)) // FIXME
+						//{
+							//dummy_display[x][y] |= 0x02;
+							//byte |= 1 << bit;
+						//}
 					}
 
 					if(bit > 0)
