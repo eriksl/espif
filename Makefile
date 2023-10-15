@@ -43,9 +43,11 @@ CFLAGS			:=	-pipe -Os -g -std=gnu11 -fdiagnostics-color=auto \
 
 CPP				:=	g++
 
-CPPFLAGS		:= -O3 -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers \
-						-DMAGICKCORE_HDRI_ENABLE=0 -DMAGICKCORE_QUANTUM_DEPTH=16 -I/usr/include/ImageMagick-7 \
-						-lssl -lcrypto -lpthread -lboost_system -lboost_program_options -lboost_regex -lboost_thread -lMagick++-7.Q16HDRI
+MAGICK_CFLAGS	!=	pkg-config --cflags Magick++
+MAGICK_LIBS		!=	pkg-config --libs Magick++
+
+CPPFLAGS		:= -O3 -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers $(MAGICK_CFLAGS) \
+					-lssl -lcrypto -lpthread -lboost_system -lboost_program_options -lboost_regex -lboost_thread $(MAGICK_LIBS) \
 
 .PRECIOUS:		*.cpp
 .PHONY:			all
