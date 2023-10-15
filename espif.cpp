@@ -1300,9 +1300,12 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 	try
 	{
+		Magick::InitializeMagick(nullptr);
+
 		Magick::Image image;
 		Magick::Geometry newsize(dim_x, dim_y);
 		Magick::Color colour;
+
 		newsize.aspect(true);
 
 		if(!filename.length())
