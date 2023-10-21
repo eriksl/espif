@@ -1282,7 +1282,7 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 	std::string reply;
 	unsigned char sector_buffer[flash_sector_size];
 	unsigned int start_x, start_y;
-	unsigned int current_buffer, x, y, l;
+	unsigned int current_buffer, x, y;
 	double r, g, b;
 	int current_sector;
 	struct timeval time_start, time_now;
@@ -1354,10 +1354,7 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 							current_buffer -= (current_buffer / 8) * 8;
 						}
 
-						//l = ((colour.quantumRed() + colour.quantumGreen() + colour.quantumBlue()) / 3) > (1 << 15);
-						l = 0; // FIXME
-
-						if(l)
+						if((r + g + b) > (3 / 2))
 							sector_buffer[current_buffer / 8] |=  (1 << (7 - (current_buffer % 8)));
 						else
 							sector_buffer[current_buffer / 8] &= ~(1 << (7 - (current_buffer % 8)));
@@ -1402,13 +1399,6 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 					case(24):
 					{
-						//r = colour.quantumRed() >> 8;
-						//g = colour.quantumGreen() >> 8;
-						//b = colour.quantumBlue() >> 8;
-						r = 0;
-						g = 0;
-						b = 0; // FIXME
-
 						if((current_buffer + 3) > flash_sector_size)
 						{
 							command_image_send_sector(command_channel, current_sector, std::string((const char *)sector_buffer, current_buffer), start_x, start_y, depth);
@@ -1422,9 +1412,9 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 							start_y = y;
 						}
 
-						sector_buffer[current_buffer++] = r;
-						sector_buffer[current_buffer++] = g;
-						sector_buffer[current_buffer++] = b;
+						sector_buffer[current_buffer++] = r * ((1 << 8) - 1);
+						sector_buffer[current_buffer++] = g * ((1 << 8) - 1);
+						sector_buffer[current_buffer++] = b * ((1 << 8) - 1);
 
 						break;
 					}
