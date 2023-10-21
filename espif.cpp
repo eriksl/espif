@@ -1304,9 +1304,11 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		unsigned char sector_buffer[flash_sector_size];
 		unsigned int start_x, start_y;
 		unsigned int current_buffer, x, y;
-		double r, g, b;
+		double r, g, b, range;
 		int seconds, useconds;
 		double duration, rate;
+
+		range = pow(2, MAGICKCORE_QUANTUM_DEPTH);
 
 		newsize.aspect(true);
 
@@ -1340,9 +1342,9 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 			{
 				colour = image.pixelColor(x, y);
 
-				r = colour.quantumRed()   / pow(2, image.modulusDepth());
-				g = colour.quantumGreen() / pow(2, image.modulusDepth());
-				b = colour.quantumBlue()  / pow(2, image.modulusDepth());
+				r = colour.quantumRed()   / range;
+				g = colour.quantumGreen() / range;
+				b = colour.quantumBlue()  / range;
 
 				switch(depth)
 				{
