@@ -1317,6 +1317,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 		image.read(filename);
 
+		image.type(MagickCore::TrueColorType);
+
 		if(option_debug)
 			std::cout << "image loaded from " << filename << ", " << image.columns() << "x" << image.rows() << ", " << image.magick() << std::endl;
 
@@ -1325,6 +1327,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 		if((image.columns() != dim_x) || (image.rows() != dim_y))
 			throw(std::string("image magic resize failed"));
+
+		image.modifyImage();
 
 		if(image_slot < 0)
 			process(command_channel, std::string("display-freeze ") + std::to_string(10000), nullptr, reply, nullptr,
