@@ -1279,15 +1279,8 @@ static void command_image_send_sector(GenericSocket &command_channel,
 static void command_image(GenericSocket &command_channel, int image_slot, const std::string &filename,
 		unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout)
 {
-	std::string reply;
-	unsigned char sector_buffer[flash_sector_size];
-	unsigned int start_x, start_y;
-	unsigned int current_buffer, x, y;
-	double r, g, b;
-	int current_sector;
 	struct timeval time_start, time_now;
-	int seconds, useconds;
-	double duration, rate;
+	int current_sector;
 
 	gettimeofday(&time_start, 0);
 
@@ -1306,6 +1299,14 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		Magick::Image image;
 		Magick::Geometry newsize(dim_x, dim_y);
 		Magick::Color colour;
+
+		std::string reply;
+		unsigned char sector_buffer[flash_sector_size];
+		unsigned int start_x, start_y;
+		unsigned int current_buffer, x, y;
+		double r, g, b;
+		int seconds, useconds;
+		double duration, rate;
 
 		newsize.aspect(true);
 
