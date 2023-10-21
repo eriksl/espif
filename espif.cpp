@@ -1317,8 +1317,7 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		if(option_debug)
 			std::cout << "image loaded from " << filename << ", " << image.columns() << "x" << image.rows() << ", " << image.magick() << std::endl;
 
-		image.filterType(Magick::CubicFilter);
-
+		image.filterType(Magick::BoxFilter);
 		image.resize(newsize);
 
 		if((image.columns() != dim_x) || (image.rows() != dim_y))
