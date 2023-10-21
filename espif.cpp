@@ -1299,16 +1299,15 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		Magick::Image image;
 		Magick::Geometry newsize(dim_x, dim_y);
 		Magick::Color colour;
+		const Magick::Quantum *pixel_cache;
 
 		std::string reply;
 		unsigned char sector_buffer[flash_sector_size];
 		unsigned int start_x, start_y;
 		unsigned int current_buffer, x, y;
-		double r, g, b, range;
+		double r, g, b;
 		int seconds, useconds;
 		double duration, rate;
-
-		range = pow(2, MAGICKCORE_QUANTUM_DEPTH);
 
 		newsize.aspect(true);
 
@@ -1330,6 +1329,8 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 
 		image.modifyImage();
 
+		pixel_cache = image.getPixels(0, 0, dim_x, dim_y);
+
 		if(image_slot < 0)
 			process(command_channel, std::string("display-freeze ") + std::to_string(10000), nullptr, reply, nullptr,
 					"display freeze success: yes");
@@ -1344,11 +1345,9 @@ static void command_image(GenericSocket &command_channel, int image_slot, const 
 		{
 			for(x = 0; x < dim_x; x++)
 			{
-				colour = image.pixelColor(x, y);
-
-				r = colour.quantumRed()   / range;
-				g = colour.quantumGreen() / range;
-				b = colour.quantumBlue()  / range;
+				r = pixel_cache[(((y * dim_x) + x) * 3) + 0] / (1 << MAGICKCORE_QUANTUM_DEPTH);
+				g = pixel_cache[(((y * dim_x) + x) * 3) + 1] / (1 << MAGICKCORE_QUANTUM_DEPTH);
+				b = pixel_cache[(((y * dim_x) + x) * 3) + 2] / (1 << MAGICKCORE_QUANTUM_DEPTH);
 
 				switch(depth)
 				{
