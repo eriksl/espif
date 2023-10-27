@@ -763,20 +763,21 @@ static int write_sector(GenericSocket &command_channel, unsigned int sector, con
 	std::string reply;
 	std::vector<int> int_value;
 	std::vector<std::string> string_value;
-	int retries;
+	int process_tries;
 
 	command = (boost::format("flash-write %u %u") % (simulate ? 0 : 1) % sector).str();
 
 	try
 	{
-		retries = process(command_channel, command, &data, reply, nullptr, "OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
+		process_tries = process(command_channel, command, &data, reply, nullptr,
+				"OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
 	}
 	catch(std::string &error)
 	{
 		if(option_verbose)
 			std::cout << "flash sector write failed: " << error << ", reply: " << reply << std::endl;
 
-		error = std::string("write_sector: ") + error;
+		error = std::string("write sector failed: ") + error;
 		throw(error);
 	}
 
@@ -802,7 +803,7 @@ static int write_sector(GenericSocket &command_channel, unsigned int sector, con
 	if(int_value[3] != 0)
 		erased++;
 
-	return(retries);
+	return(process_tries);
 }
 
 static void get_checksum(GenericSocket &command_channel, unsigned int sector, unsigned int sectors, std::string &checksum)
@@ -1008,6 +1009,8 @@ void command_write(GenericSocket &command_channel, const std::string filename, i
 
 		for(current = sector; current < (sector + length); current++)
 		{
+			unsigned int attempt;
+
 			memset(sector_buffer, 0xff, flash_sector_size);
 
 			if((read(file_fd, sector_buffer, flash_sector_size)) <= 0)
@@ -1015,7 +1018,26 @@ void command_write(GenericSocket &command_channel, const std::string filename, i
 
 			EVP_DigestUpdate(hash_ctx, sector_buffer, flash_sector_size);
 
-			retries += write_sector(command_channel, current, std::string((const char *)sector_buffer, sizeof(sector_buffer)), sectors_written, sectors_erased, sectors_skipped, simulate);
+			for(attempt = 4; attempt > 0; attempt--)
+			{
+				try
+				{
+					retries += write_sector(command_channel, current, std::string((const char *)sector_buffer, sizeof(sector_buffer)),
+							sectors_written, sectors_erased, sectors_skipped, simulate);
+				}
+				catch(const std::string &e)
+				{
+					if(option_verbose)
+						std::cerr << "command write: " << e << ", try #" << attempt << std::endl;
+
+					continue;
+				}
+
+				break;
+			}
+
+			if(attempt == 0)
+				throw(std::string("command write: write sector: no more attempts"));
 
 			offset += flash_sector_size;
 
@@ -1270,9 +1292,29 @@ static void command_image_send_sector(GenericSocket &command_channel,
 		unsigned int sectors_written, sectors_erased, sectors_skipped;
 		std::string pad;
 		unsigned int pad_length = 4096 - data.length();
+		unsigned int attempt;
 
 		pad.assign(pad_length, 0x00);
-		write_sector(command_channel, current_sector, data + pad, sectors_written, sectors_erased, sectors_skipped, false);
+
+		for(attempt = 4; attempt > 0; attempt--)
+		{
+			try
+			{
+				write_sector(command_channel, current_sector, data + pad, sectors_written, sectors_erased, sectors_skipped, false);
+			}
+			catch(const std::string &e)
+			{
+				if(option_verbose)
+					std::cerr << "command image send sector: " << e << std::endl;
+
+				continue;
+			}
+
+			break;
+		}
+
+		if(attempt == 0)
+			throw(std::string("command image send sector: write sector: no more attempts"));
 	}
 }
 
