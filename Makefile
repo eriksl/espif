@@ -56,14 +56,21 @@ all:			espif
 
 clean:
 				$(VECHO) "CLEAN"
-				-$(Q) rm -f espif.o espif.h.gch espif 2> /dev/null
+				-$(Q) rm -f $(OBJS) espif.h.gch espif 2> /dev/null
 
-%:				%.cpp
-				$(VECHO) "HOST CPP $<"
-				$(Q) $(CPP) $(CPPFLAGS) $< -o $@
+OBJS			:= command.o generic_socket.o packet.o util.o espif.o
+HDRS			:= command.h generic_socket.h packet.h util.h
 
-%.h.gch:		%.h
-				$(VECHO) "HOST CPP PCH $<"
-				$(Q) $(CPP) $(CPPFLAGS) -c -x c++-header $< -o $@
+command.o:		$(HDRS)
+espif.o:		$(HDRS)
+generic_socket.o: $(HDRS)
+packet.o:		$(HDRS)
+util.o:			$(HDRS)
 
-espif:			espif.cpp espif.h.gch
+%.o:			%.cpp
+				$(VECHO) "CPP $<"
+				$(Q) $(CPP) $(CPPFLAGS) -c $< -o $@
+
+espif:			$(OBJS)
+				$(VECHO) "LD $(OBJS)"
+				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) -o $@
