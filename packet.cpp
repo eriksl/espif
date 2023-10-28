@@ -44,39 +44,37 @@ void Packet::clear_packet_header() noexcept
 	packet_header.checksum = 0;
 }
 
-Packet::Packet() noexcept
+Packet::Packet()
 {
 	clear();
 }
 
-Packet::Packet(const std::string *data_in, const std::string *oob_data_in) noexcept
+Packet::Packet(const std::string &data_in, const std::string &oob_data_in)
 {
 	clear();
 
-	data = *data_in;
-
-	if(oob_data_in)
-		oob_data = *oob_data_in;
+	data = data_in;
+	oob_data = oob_data_in;
 }
 
-void Packet::clear() noexcept
+void Packet::clear()
 {
 	data.clear();
 	oob_data.clear();
 	clear_packet_header();
 }
 
-void Packet::append_data(const std::string &data_in) noexcept
+void Packet::append_data(const std::string &data_in)
 {
 	data.append(data_in);
 }
 
-void Packet::append_oob_data(const std::string &oob_data_in) noexcept
+void Packet::append_oob_data(const std::string &oob_data_in)
 {
 	oob_data.append(oob_data_in);
 }
 
-std::string Packet::encapsulate(bool raw, bool provide_checksum, bool request_checksum, unsigned int broadcast_group_mask, const uint32_t *transaction_id) noexcept
+std::string Packet::encapsulate(bool raw, bool provide_checksum, bool request_checksum, unsigned int broadcast_group_mask, const uint32_t *transaction_id)
 {
 	std::string pad;
 	std::string packet;
@@ -138,7 +136,7 @@ std::string Packet::encapsulate(bool raw, bool provide_checksum, bool request_ch
 	return(packet);
 }
 
-bool Packet::decapsulate(std::string *data_in, std::string *oob_data_in, bool verbose, bool *rawptr, const uint32_t *transaction_id) noexcept
+bool Packet::decapsulate(std::string *data_in, std::string *oob_data_in, bool verbose, bool *rawptr, const uint32_t *transaction_id)
 {
 	bool raw = false;
 	unsigned int our_checksum;
@@ -251,7 +249,7 @@ bool Packet::decapsulate(std::string *data_in, std::string *oob_data_in, bool ve
 	return(true);
 }
 
-bool Packet::complete() noexcept
+bool Packet::complete()
 {
 	if(data.length() == 0)
 		return(false);

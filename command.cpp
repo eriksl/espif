@@ -6,17 +6,17 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <netdb.h>
 #include <string.h>
-#include <openssl/evp.h>
+#include <netdb.h>
 #include <string>
 #include <iostream>
 #include <iomanip>
 #include <boost/format.hpp>
+#include <openssl/evp.h>
 #include <Magick++.h>
 
 // FIXME
-static const char *flash_info_expect = "ok flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)";
+static const char *flash_info_expect = "OK flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)";
 
 enum
 {
@@ -408,16 +408,16 @@ void Command::benchmark(int length) const
 		{
 			if(phase == 0)
 				retries += util.process("flash-bench 0",
-						&data,
+						data,
 						reply,
 						nullptr,
 						"OK flash-bench: sending 0 bytes");
 			else
-				retries += util.process(std::string("flash-bench ") + std::to_string(length),
-						nullptr,
+				retries += util.process((boost::format("flash-bench %u") % length).str(),
+						"",
 						reply,
 						&data,
-						(std::string("OK flash-bench: sending ") + std::to_string(length) + " bytes").c_str());
+						(boost::format("OK flash-bench: sending %u bytes") % length).str().c_str());
 
 			gettimeofday(&time_now, 0);
 
@@ -478,7 +478,7 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 		}
 
 		command = (boost::format("display-plot %u %u %u\n") % pixels % current_x % current_y).str();
-		util.process(command, &data, reply, nullptr, "display plot success: yes");
+		util.process(command, data, reply, nullptr, "display plot success: yes");
 	}
 	else
 	{
@@ -567,7 +567,7 @@ void Command::image(int image_slot, const std::string &filename,
 		pixel_cache = image.getPixels(0, 0, dim_x, dim_y);
 
 		if(image_slot < 0)
-			util.process(std::string("display-freeze ") + std::to_string(10000), nullptr, reply, nullptr,
+			util.process((boost::format("display-freeze %u") % 10000).str(), "", reply, nullptr,
 					"display freeze success: yes");
 
 		current_buffer = 0;
@@ -695,11 +695,11 @@ void Command::image(int image_slot, const std::string &filename,
 		std::cout << std::endl;
 
 		if(image_slot < 0)
-			util.process(std::string("display-freeze ") + std::to_string(0), nullptr, reply, nullptr,
+			util.process((boost::format("display-freeze %u") % 0).str(), "", reply, nullptr,
 					"display freeze success: yes");
 
 		if((image_slot < 0) && (image_timeout > 0))
-			util.process(std::string("display-freeze ") + std::to_string(image_timeout), nullptr, reply, nullptr,
+			util.process((boost::format("display-freeze %u") % image_timeout).str(), "", reply, nullptr,
 					"display freeze success: yes");
 	}
 	catch(const Magick::Error &error)
@@ -716,21 +716,19 @@ void Command::cie_spi_write(const std::string &data, const char *match) const
 {
 	std::string reply;
 
-	util.process(data, nullptr, reply, nullptr, match);
+	util.process(data, "", reply, nullptr, match);
 }
 
 void Command::cie_uc_cmd_data(bool isdata, unsigned int data_value) const
 {
-	std::string data, reply;
-	std::stringstream text;
+	boost::format fmt("spt 17 8 %02x 0 0 0 0");
+	std::string reply;
 
-	text.str("");
-	text << "spt 17 8 " << std::hex << std::setfill('0') << std::setw(2) << data_value << " 0 0 0 0";
-	data = text.str();
+	fmt % data_value;
 
 	cie_spi_write("sps", "spi start ok");
 	cie_spi_write(std::string("iw 1 0 ") + (isdata ? "1" : "0"), (std::string("digital output: \\[") + (isdata ? "1" : "0") + "\\]").c_str());
-	cie_spi_write(data, "spi transmit ok");
+	cie_spi_write(fmt.str(), "spi transmit ok");
 	cie_spi_write("spf", "spi finish ok");
 }
 
@@ -748,7 +746,7 @@ void Command::cie_uc_data_string(const std::string valuestring) const
 {
 	cie_spi_write("iw 1 0 1", "digital output: \\[1\\]");
 	cie_spi_write("sps", "spi start ok");
-	cie_spi_write(std::string("spw 8 ") + valuestring, "spi write ok");
+	cie_spi_write((boost::format("spw 8 %s") % valuestring).str(), "spi write ok");
 	cie_spi_write("spt 17 0 0 0 0 0 0 0", "spi transmit ok");
 	cie_spi_write("spf", "spi finish ok");
 }
@@ -761,7 +759,6 @@ void Command::image_epaper(const std::string &filename) const
 	std::vector<int> int_value;
 	std::vector<std::string> string_value;
 	std::string values, command, reply;
-	std::stringstream text;
 	unsigned int layer, all_bytes, bytes, byte, bit;
 	int x, y;
 	struct timeval time_start, time_now;
@@ -847,9 +844,7 @@ void Command::image_epaper(const std::string &filename) const
 						bit--;
 					else
 					{
-						text.str("");
-						text << std::hex << std::setfill('0') << std::setw(2) << byte << " ";
-						values.append(text.str());
+						values.append((boost::format("%02x ") % byte).str());
 						all_bytes++;
 						bytes++;
 						bit = 7;
@@ -893,9 +888,9 @@ void Command::image_epaper(const std::string &filename) const
 
 		cie_uc_cmd(0x12); // display refresh DRF
 	}
-	catch(const Magick::Error &error)
+	catch(const Magick::Error &e)
 	{
-		throw(hard_exception(std::string("image epaper: load failed: ") + error.what()));
+		throw(hard_exception(boost::format("image epaper: load failed: %s") % e.what()));
 	}
 	catch(const Magick::Warning &warning)
 	{
@@ -956,7 +951,7 @@ void Command::send(std::string args) const
 			args.clear();
 		}
 
-		retries = util.process(arg, nullptr, reply, &reply_oob);
+		retries = util.process(arg, "", reply, &reply_oob);
 
 		std::cout << reply;
 
@@ -986,7 +981,7 @@ void Command::send(std::string args) const
 
 void Command::multicast(const std::string &args)
 {
-	Packet send_packet(&args, nullptr);
+	Packet send_packet(args);
 	Packet receive_packet;
 	std::string send_data;
 	std::string receive_data;
@@ -1095,13 +1090,14 @@ void Command::multicast(const std::string &args)
 
 	for(auto &it : multicast_replies)
 	{
-		std::string host_id_text;
+		boost::format fmt("%u.%u.%u.%u");
 
-		host_id_text += std::to_string(((it.first & 0xff000000) >> 24)) + ".";
-		host_id_text += std::to_string(((it.first & 0x00ff0000) >> 16)) + ".";
-		host_id_text += std::to_string(((it.first & 0x0000ff00) >>  8)) + ".";
-		host_id_text += std::to_string(((it.first & 0x000000ff) >>  0));
-		std::cout << std::setw(12) << std::left << host_id_text;
+		fmt % ((it.first & 0xff000000) >> 24) %
+				((it.first & 0x00ff0000) >> 16) %
+				((it.first & 0x0000ff00) >>  8) %
+				((it.first & 0x000000ff) >>  0);
+
+		std::cout << std::setw(12) << std::left << fmt.str();
 		std::cout << " " << std::setw(2) << std::right << it.second.count << " ";
 		std::cout << std::setw(12) << std::left << it.second.hostname;
 		std::cout << " " << it.second.text;
@@ -1121,7 +1117,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	static const char *flash_select_expect = "OK flash-select: slot ([0-9]+) selected, sector ([0-9]+), permanent ([0-1])";
 
 	send_data = (boost::format("flash-select %u %u") % flash_slot % (notemp ? 1 : 0)).str();
-	util.process(send_data, nullptr, reply, nullptr, flash_select_expect, &string_value, &int_value);
+	util.process(send_data, "", reply, nullptr, flash_select_expect, &string_value, &int_value);
 
 	if(int_value[0] != (int)flash_slot)
 		throw(hard_exception(boost::format("flash-select failed, local slot (%u) != remote slot (%u)") % flash_slot % int_value[0]));
@@ -1155,7 +1151,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 		{
 			channel.disconnect();
 			channel.connect();
-			util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
+			util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
 		}
 		catch(const transient_exception &e)
 		{
@@ -1178,7 +1174,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 
 	std::cout << "reboot finished" << std::endl;
 
-	util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
+	util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
 
 	if(int_value[0] != (int)flash_slot)
 		throw(hard_exception(boost::format("boot failed, requested slot (%u) != active slot (%u)") % flash_slot % int_value[0]));
@@ -1188,7 +1184,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 		std::cout << "boot succeeded, permanently selecting boot slot: " << flash_slot << std::endl;
 
 		send_data = (boost::format("flash-select %u 1") % flash_slot).str();
-		util.process(send_data, nullptr, reply, nullptr, flash_select_expect, &string_value, &int_value);
+		util.process(send_data, "", reply, nullptr, flash_select_expect, &string_value, &int_value);
 
 		if(int_value[0] != (int)flash_slot)
 			throw(hard_exception(boost::format("flash-select failed, local slot (%u) != remote slot (%u)") % flash_slot % int_value[0]));
@@ -1200,6 +1196,6 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 			throw(hard_exception("flash-select failed, local permanent != remote permanent"));
 	}
 
-	util.process("stats", nullptr, reply, nullptr, "\\s*>\\s*firmware\\s*>\\s*date:\\s*([a-zA-Z0-9: ]+).*", &string_value, &int_value);
+	util.process("stats", "", reply, nullptr, "\\s*>\\s*firmware\\s*>\\s*date:\\s*([a-zA-Z0-9: ]+).*", &string_value, &int_value);
 	std::cout << "firmware version: " << string_value[0] << std::endl;
 }

@@ -4,7 +4,6 @@
 
 #include <string>
 #include <iostream>
-#include <sstream>
 #include <iomanip>
 #include <boost/format.hpp>
 #include <boost/regex.hpp>
@@ -45,20 +44,20 @@ std::string Util::dumper(const char *id, const std::string text)
 std::string Util::sha1_hash_to_text(unsigned int length, const unsigned char *hash)
 {
 	unsigned int current;
-	std::stringstream hash_string;
+	std::string hash_string;
 
 	for(current = 0; current < length; current++)
-		hash_string << std::hex << std::setw(2) << std::setfill('0') << (unsigned int)hash[current];
+		hash_string.append((boost::format("%02x") % (unsigned int)hash[current]).str());
 
-	return(hash_string.str());
+	return(hash_string);
 }
 
-int Util::process(const std::string &data, const std::string *oob_data, std::string &reply_data, std::string *reply_oob_data,
+int Util::process(const std::string &data, const std::string &oob_data, std::string &reply_data, std::string *reply_oob_data,
 		const char *match, std::vector<std::string> *string_value, std::vector<int> *int_value) const
 {
 	enum { max_attempts = 4 };
 	unsigned int attempt;
-	Packet send_packet(&data, oob_data);
+	Packet send_packet(data, oob_data);
 	std::string send_data;
 	std::string packet;
 	Packet receive_packet;
@@ -133,7 +132,7 @@ int Util::process(const std::string &data, const std::string *oob_data, std::str
 				continue;
 
 			if(string_value)
-				string_value->push_back(std::string(it));
+				string_value->push_back(it);
 
 			if(int_value)
 			{
@@ -174,8 +173,8 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 
 	try
 	{
-		retries = process(std::string("flash-read ") + std::to_string(sector) + "\n", nullptr, reply, &data,
-				"OK flash-read: read sector ([0-9]+)", &string_value, &int_value);
+		retries = process((boost::format("flash-read %u\n") % sector).str(), "",
+				reply, &data, "OK flash-read: read sector ([0-9]+)", &string_value, &int_value);
 	}
 	catch(const hard_exception &e)
 	{
@@ -222,8 +221,8 @@ int Util::write_sector(unsigned int sector, const std::string &data,
 
 	try
 	{
-		process_tries = process(command, &data, reply, nullptr,
-				"OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
+		process_tries = process(command, data,
+				reply, nullptr, "OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
 	}
 	catch(const transient_exception &e)
 	{
@@ -275,8 +274,9 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 
 	try
 	{
-		process(std::string("flash-checksum ") + std::to_string(sector) + " " + std::to_string(sectors) + "\n", nullptr,
-				reply, nullptr, "OK flash-checksum: checksummed ([0-9]+) sectors from sector ([0-9]+), checksum: ([0-9a-f]+)", &string_value, &int_value);
+		process((boost::format("flash-checksum %u %u\n") % sector % sectors).str(), "",
+				reply, nullptr, "OK flash-checksum: checksummed ([0-9]+) sectors from sector ([0-9]+), checksum: ([0-9a-f]+)",
+				&string_value, &int_value);
 	}
 	catch(const transient_exception &e)
 	{

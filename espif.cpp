@@ -196,7 +196,7 @@ int main(int argc, const char **argv)
 
 				try
 				{
-					util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
+					util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
 				}
 				catch(const espif_exception &e)
 				{
