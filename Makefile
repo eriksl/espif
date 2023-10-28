@@ -58,8 +58,8 @@ clean:
 				$(VECHO) "CLEAN"
 				-$(Q) rm -f $(OBJS) espif.h.gch espif 2> /dev/null
 
-OBJS			:= command.o generic_socket.o packet.o util.o espif.o
-HDRS			:= command.h generic_socket.h packet.h util.h
+OBJS			:= command.o generic_socket.o packet.o util.o exception.o espif.o
+HDRS			:= command.h generic_socket.h packet.h util.h exception.h
 
 command.o:		$(HDRS)
 espif.o:		$(HDRS)

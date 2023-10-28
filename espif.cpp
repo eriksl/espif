@@ -2,6 +2,7 @@
 #include "generic_socket.h"
 #include "util.h"
 #include "command.h"
+#include "exception.h"
 
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -144,7 +145,7 @@ int main(int argc, const char **argv)
 			selected++;
 
 		if(selected > 1)
-			throw(std::string("specify one of write/simulate/verify/image/epaper-image/read/info"));
+			throw(hard_exception("specify one of write/simulate/verify/image/epaper-image/read/info"));
 
 		GenericSocket channel(host, command_port, flash_sector_size, option_use_tcp, !!cmd_broadcast, !!cmd_multicast, option_verbose);
 		Util util(channel, option_verbose, option_debug, option_raw, !option_no_provide_checksum, !option_no_request_checksum, option_broadcast_group_mask);
@@ -166,18 +167,26 @@ int main(int argc, const char **argv)
 				{
 					start = std::stoi(start_string, 0, 0);
 				}
-				catch(...)
+				catch(const std::invalid_argument &)
 				{
-					throw(std::string("invalid value for start argument"));
+					throw(hard_exception("invalid value for start argument"));
+				}
+				catch(const std::out_of_range &)
+				{
+					throw(hard_exception("invalid value for start argument"));
 				}
 
 				try
 				{
 					length = std::stoi(length_string, 0, 0);
 				}
-				catch(...)
+				catch(const std::invalid_argument &)
 				{
-					throw(std::string("invalid value for length argument"));
+					throw(hard_exception("invalid value for length argument"));
+				}
+				catch(const std::out_of_range &)
+				{
+					throw(hard_exception("invalid value for length argument"));
 				}
 
 				std::string reply;
@@ -189,9 +198,9 @@ int main(int argc, const char **argv)
 				{
 					util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
 				}
-				catch(std::string &e)
+				catch(const espif_exception &e)
 				{
-					throw(std::string("flash incompatible image: ") + e);
+					throw(hard_exception(boost::format("flash incompatible image: %s") % e.what()));
 				}
 
 				flash_slot = int_value[0];
@@ -224,7 +233,7 @@ int main(int argc, const char **argv)
 					}
 					else
 						if(!cmd_benchmark && !cmd_image && !cmd_image_epaper)
-							throw(std::string("start address not set"));
+							throw(hard_exception("start address not set"));
 				}
 
 				if(cmd_read)
@@ -257,27 +266,42 @@ int main(int argc, const char **argv)
 	}
 	catch(const po::error &e)
 	{
-		std::cerr << std::endl << "espif: " << e.what() << std::endl << options;
+		std::cerr << std::endl << "espif: program option exception: " << e.what() << std::endl << options;
+		return(1);
+	}
+	catch(const hard_exception &e)
+	{
+		std::cerr << std::endl << "espif: error: " << e.what() << std::endl;
+		return(1);
+	}
+	catch(const transient_exception &e)
+	{
+		std::cerr << std::endl << "espif: transient exception: " << e.what() << std::endl;
+		return(1);
+	}
+	catch(const espif_exception &e)
+	{
+		std::cerr << std::endl << "espif: unknown generic espif exception: " << e.what() << std::endl;
 		return(1);
 	}
 	catch(const std::exception &e)
 	{
-		std::cerr << std::endl << "espif: " << e.what() << std::endl;
+		std::cerr << std::endl << "espif: standard exception: " << e.what() << std::endl;
 		return(1);
 	}
 	catch(const std::string &e)
 	{
-		std::cerr << std::endl << "espif: " << e << std::endl;
+		std::cerr << std::endl << "espif: unknown standard string exception: " << e << std::endl;
 		return(1);
 	}
 	catch(const char *e)
 	{
-		std::cerr << std::endl << "espif: " << e << std::endl;
+		std::cerr << std::endl << "espif: unknown string exception: " << e << std::endl;
 		return(1);
 	}
 	catch(...)
 	{
-		std::cerr << std::endl << "espif: unknown exception caught" << std::endl;
+		std::cerr << std::endl << "espif: unknown exception" << std::endl;
 		return(1);
 	}
 

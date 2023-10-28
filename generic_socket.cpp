@@ -1,5 +1,6 @@
 #include "generic_socket.h"
 #include "util.h"
+#include "exception.h"
 
 #include <string>
 #include <string.h>
@@ -37,7 +38,7 @@ void GenericSocket::connect()
 	struct addrinfo *res = nullptr;
 
 	if((socket_fd = socket(AF_INET, tcp ? SOCK_STREAM : SOCK_DGRAM, 0)) < 0)
-		throw(std::string("socket failed"));
+		throw(hard_exception("socket failed"));
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
@@ -48,11 +49,11 @@ void GenericSocket::connect()
 	{
 		if(res)
 			freeaddrinfo(res);
-		throw(std::string("unknown host"));
+		throw(hard_exception("unknown host"));
 	}
 
 	if(!res || !res->ai_addr)
-		throw(std::string("unknown host"));
+		throw(hard_exception("unknown host"));
 
 	saddr = *(struct sockaddr_in *)res->ai_addr;
 	freeaddrinfo(res);
@@ -65,7 +66,7 @@ void GenericSocket::connect()
 		{
 			if(verbose)
 				perror("setsockopt SO_BROADCAST\n");
-			throw(std::string("set broadcast"));
+			throw(hard_exception("set broadcast"));
 		}
 	}
 
@@ -75,22 +76,22 @@ void GenericSocket::connect()
 		int arg = 3;
 
 		if(setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &arg, sizeof(arg)))
-			throw(std::string("multicast: cannot set mc ttl"));
+			throw(hard_exception("multicast: cannot set mc ttl"));
 
 		arg = 0;
 
 		if(setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &arg, sizeof(arg)))
-			throw(std::string("multicast: cannot set loopback"));
+			throw(hard_exception("multicast: cannot set loopback"));
 
 		mreq.imr_multiaddr = saddr.sin_addr;
 		mreq.imr_interface.s_addr = INADDR_ANY;
 
 		if(setsockopt(socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)))
-			throw(std::string("multicast: cannot join mc group"));
+			throw(hard_exception("multicast: cannot join mc group"));
 	}
 
 	if(tcp && ::connect(socket_fd, (const struct sockaddr *)&saddr, sizeof(saddr)))
-		throw(std::string("connect failed"));
+		throw(hard_exception("connect failed"));
 }
 
 void GenericSocket::disconnect() noexcept
@@ -101,7 +102,7 @@ void GenericSocket::disconnect() noexcept
 	socket_fd = -1;
 }
 
-bool GenericSocket::send(std::string &data, int timeout) const noexcept
+bool GenericSocket::send(std::string &data, int timeout) const
 {
 	struct pollfd pfd;
 	int length;
@@ -147,7 +148,7 @@ bool GenericSocket::send(std::string &data, int timeout) const noexcept
 	return(true);
 }
 
-bool GenericSocket::receive(std::string &data, int timeout, struct sockaddr_in *remote_host) noexcept
+bool GenericSocket::receive(std::string &data, int timeout, struct sockaddr_in *remote_host) const
 {
 	int length;
 	char buffer[2 * buffer_size];
@@ -199,7 +200,7 @@ bool GenericSocket::receive(std::string &data, int timeout, struct sockaddr_in *
 	return(true);
 }
 
-void GenericSocket::drain(int timeout) noexcept
+void GenericSocket::drain(int timeout) const noexcept
 {
 	struct pollfd pfd;
 	enum { drain_packets_buffer_size = 4, drain_packets = 16 };

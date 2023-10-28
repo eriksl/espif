@@ -1,5 +1,6 @@
 #include "command.h"
 #include "packet.h"
+#include "exception.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -54,10 +55,10 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 	std::string data;
 
 	if(filename.empty())
-		throw(std::string("file name required"));
+		throw(hard_exception("file name required"));
 
 	if((file_fd = open(filename.c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0666)) < 0)
-		throw(std::string("can't create file"));
+		throw(hard_exception("can't create file"));
 
 	try
 	{
@@ -80,7 +81,7 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 			retries += util.read_sector(sector_size, current, data);
 
 			if(::write(file_fd, data.data(), data.length()) <= 0)
-				throw(std::string("i/o error in write"));
+				throw(hard_exception("i/o error in write"));
 
 			EVP_DigestUpdate(hash_ctx, (const unsigned char *)data.data(), data.length());
 
@@ -106,7 +107,7 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 			std::cout.flush();
 		}
 	}
-	catch(const std::string &e)
+	catch(...)
 	{
 		std::cout << std::endl;
 
@@ -137,7 +138,7 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 			std::cout << std::endl;
 		}
 
-		throw(std::string("checksum read failed"));
+		throw(hard_exception("checksum read failed"));
 	}
 
 	std::cout << "checksum OK" << std::endl;
@@ -162,10 +163,10 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 	struct stat stat;
 
 	if(filename.empty())
-		throw(std::string("file name required"));
+		throw(hard_exception("file name required"));
 
 	if((file_fd = open(filename.c_str(), O_RDONLY, 0)) < 0)
-		throw(std::string("file not found"));
+		throw(hard_exception("file not found"));
 
 	fstat(file_fd, &stat);
 	length = (stat.st_size + (sector_size - 1)) / sector_size;
@@ -209,7 +210,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 			memset(sector_buffer, 0xff, sector_size);
 
 			if((::read(file_fd, sector_buffer, sector_size)) <= 0)
-				throw(std::string("i/o error in read"));
+				throw(hard_exception("i/o error in read"));
 
 			EVP_DigestUpdate(hash_ctx, sector_buffer, sector_size);
 
@@ -220,10 +221,10 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 					retries += util.write_sector(current, std::string((const char *)sector_buffer, sizeof(sector_buffer)),
 							sectors_written, sectors_erased, sectors_skipped, simulate);
 				}
-				catch(const std::string &e)
+				catch(const transient_exception &e)
 				{
 					if(verbose)
-						std::cerr << "command write: " << e << ", try #" << attempt << std::endl;
+						std::cerr << "command write: " << e.what() << ", try #" << attempt << std::endl;
 
 					continue;
 				}
@@ -232,7 +233,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 			}
 
 			if(attempt == 0)
-				throw(std::string("command write: write sector: no more attempts"));
+				throw(hard_exception("command write: write sector: no more attempts"));
 
 			offset += sector_size;
 
@@ -259,7 +260,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 			std::cout.flush();
 		}
 	}
-	catch(std::string &e)
+	catch(...)
 	{
 		std::cout << std::endl;
 
@@ -292,7 +293,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 		}
 
 		if(sha_local_hash_text != sha_remote_hash_text)
-			throw(std::string("checksum failed: SHA hash differs, local: ") +  sha_local_hash_text + ", remote: " + sha_remote_hash_text);
+			throw(hard_exception(boost::format("checksum failed: SHA hash differs, local: %u, remote: %s") % sha_local_hash_text % sha_remote_hash_text));
 
 		std::cout << "checksum OK" << std::endl;
 		std::cout << "write finished" << std::endl;
@@ -314,10 +315,10 @@ void Command::verify(const std::string &filename, int sector) const
 	int retries;
 
 	if(filename.empty())
-		throw(std::string("file name required"));
+		throw(hard_exception("file name required"));
 
 	if((file_fd = open(filename.c_str(), O_RDONLY)) < 0)
-		throw(std::string("can't open file"));
+		throw(hard_exception("can't open file"));
 
 	fstat(file_fd, &stat);
 	sectors = (stat.st_size + (sector_size - 1)) / sector_size;
@@ -341,14 +342,14 @@ void Command::verify(const std::string &filename, int sector) const
 			memset(sector_buffer, 0xff, sector_size);
 
 			if(::read(file_fd, sector_buffer, sizeof(sector_buffer)) <= 0)
-				throw(std::string("i/o error in read"));
+				throw(hard_exception("i/o error in read"));
 
 			local_data.assign((const char *)sector_buffer, sizeof(sector_buffer));
 
 			retries += util.read_sector(sector_size, current, remote_data);
 
 			if(local_data != remote_data)
-				throw((boost::format("data mismatch, sector %u") % current).str());
+				throw(hard_exception(boost::format("data mismatch, sector %u") % current));
 
 			offset += sizeof(sector_buffer);
 
@@ -372,7 +373,7 @@ void Command::verify(const std::string &filename, int sector) const
 			std::cout.flush();
 		}
 	}
-	catch(const std::string &e)
+	catch(...)
 	{
 		std::cout << std::endl;
 		close(file_fd);
@@ -472,7 +473,7 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 
 			default:
 			{
-				throw(std::string("unknown display colour depth"));
+				throw(hard_exception("unknown display colour depth"));
 			}
 		}
 
@@ -494,10 +495,10 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 			{
 				util.write_sector(current_sector, data + pad, sectors_written, sectors_erased, sectors_skipped, false);
 			}
-			catch(const std::string &e)
+			catch(const transient_exception &e)
 			{
 				if(verbose)
-					std::cerr << "command image send sector: " << e << std::endl;
+					std::cerr << "command image send sector: " << e.what() << std::endl;
 
 				continue;
 			}
@@ -506,7 +507,7 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 		}
 
 		if(attempt == 0)
-			throw(std::string("command image send sector: write sector: no more attempts"));
+			throw(hard_exception("command image send sector: write sector: no more attempts"));
 	}
 }
 
@@ -546,7 +547,7 @@ void Command::image(int image_slot, const std::string &filename,
 		newsize.aspect(true);
 
 		if(!filename.length())
-			throw(std::string("empty file name"));
+			throw(hard_exception("empty file name"));
 
 		image.read(filename);
 
@@ -559,7 +560,7 @@ void Command::image(int image_slot, const std::string &filename,
 		image.resize(newsize);
 
 		if((image.columns() != dim_x) || (image.rows() != dim_y))
-			throw(std::string("image magic resize failed"));
+			throw(hard_exception("image magic resize failed"));
 
 		image.modifyImage();
 
@@ -703,7 +704,7 @@ void Command::image(int image_slot, const std::string &filename,
 	}
 	catch(const Magick::Error &error)
 	{
-		throw(std::string("image: load failed: ") + error.what());
+		throw(hard_exception(boost::format("image: load failed: %s") % error.what()));
 	}
 	catch(const Magick::Warning &warning)
 	{
@@ -792,7 +793,7 @@ void Command::image_epaper(const std::string &filename) const
 		newsize.aspect(true);
 
 		if(!filename.length())
-			throw(std::string("image epaper: empty file name"));
+			throw(hard_exception("image epaper: empty file name"));
 
 		image.read(filename);
 
@@ -802,7 +803,7 @@ void Command::image_epaper(const std::string &filename) const
 		image.resize(newsize);
 
 		if((image.columns() != dim_x) || (image.rows() != dim_y))
-			throw(std::string("image epaper: image magic resize failed"));
+			throw(hard_exception("image epaper: image magic resize failed"));
 
 		all_bytes = 0;
 		bytes = 0;
@@ -894,7 +895,7 @@ void Command::image_epaper(const std::string &filename) const
 	}
 	catch(const Magick::Error &error)
 	{
-		throw(std::string("image epaper: load failed: ") + error.what());
+		throw(hard_exception(std::string("image epaper: load failed: ") + error.what()));
 	}
 	catch(const Magick::Warning &warning)
 	{
@@ -1123,13 +1124,13 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	util.process(send_data, nullptr, reply, nullptr, flash_select_expect, &string_value, &int_value);
 
 	if(int_value[0] != (int)flash_slot)
-		throw(std::string("flash-select failed, local slot (") + std::to_string(flash_slot) + ") != remote slot (" + std::to_string(int_value[0]) + ")");
+		throw(hard_exception(boost::format("flash-select failed, local slot (%u) != remote slot (%u)") % flash_slot % int_value[0]));
 
 	if(int_value[1] != (int)sector)
-		throw(std::string("flash-select failed, local sector != remote sector"));
+		throw(hard_exception("flash-select failed, local sector != remote sector"));
 
 	if(int_value[2] != notemp ? 1 : 0)
-		throw(std::string("flash-select failed, local permanent != remote permanent"));
+		throw(hard_exception("flash-select failed, local permanent != remote permanent"));
 
 	std::cout << "selected ";
 
@@ -1156,10 +1157,16 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 			channel.connect();
 			util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
 		}
-		catch(std::string &e)
+		catch(const transient_exception &e)
 		{
-			std::cout << ix << " ";
-			std::flush(std::cout);
+			if(verbose)
+				std::cerr << e.what();
+			else
+			{
+				std::cout << ix << " ";
+				std::flush(std::cout);
+			}
+
 			usleep(100000);
 			continue;
 		}
@@ -1174,7 +1181,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	util.process("flash-info", nullptr, reply, nullptr, flash_info_expect, &string_value, &int_value);
 
 	if(int_value[0] != (int)flash_slot)
-		throw(std::string("boot failed, requested slot: ") + std::to_string(flash_slot) + ", active slot: " + std::to_string(int_value[0]));
+		throw(hard_exception(boost::format("boot failed, requested slot (%u) != active slot (%u)") % flash_slot % int_value[0]));
 
 	if(!notemp)
 	{
@@ -1184,13 +1191,13 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 		util.process(send_data, nullptr, reply, nullptr, flash_select_expect, &string_value, &int_value);
 
 		if(int_value[0] != (int)flash_slot)
-			throw(std::string("flash-select failed, local slot (") + std::to_string(flash_slot) + ") != remote slot (" + std::to_string(int_value[0]) + ")");
+			throw(hard_exception(boost::format("flash-select failed, local slot (%u) != remote slot (%u)") % flash_slot % int_value[0]));
 
 		if(int_value[1] != (int)sector)
-			throw(std::string("flash-select failed, local sector != remote sector"));
+			throw(hard_exception("flash-select failed, local sector != remote sector"));
 
 		if(int_value[2] != 1)
-			throw(std::string("flash-select failed, local permanent != remote permanent"));
+			throw(hard_exception("flash-select failed, local permanent != remote permanent"));
 	}
 
 	util.process("stats", nullptr, reply, nullptr, "\\s*>\\s*firmware\\s*>\\s*date:\\s*([a-zA-Z0-9: ]+).*", &string_value, &int_value);

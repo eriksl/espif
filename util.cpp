@@ -1,5 +1,6 @@
 #include "util.h"
 #include "packet.h"
+#include "exception.h"
 
 #include <string>
 #include <iostream>
@@ -82,7 +83,7 @@ int Util::process(const std::string &data, const std::string *oob_data, std::str
 
 			while(send_data.length() > 0)
 				if(!channel.send(send_data))
-					throw(std::string("send failed"));
+					throw(transient_exception("send failed"));
 
 			receive_packet.clear();
 
@@ -91,23 +92,23 @@ int Util::process(const std::string &data, const std::string *oob_data, std::str
 				receive_data.clear();
 
 				if(!channel.receive(receive_data))
-					throw(std::string("receive failed"));
+					throw(transient_exception("receive failed"));
 
 				receive_packet.append_data(receive_data);
 			}
 
 			if(!receive_packet.decapsulate(&reply_data, reply_oob_data, verbose))
-				throw(std::string("decapsulation failed"));
+				throw(transient_exception("decapsulation failed"));
 
 			if(match && !boost::regex_match(reply_data, capture, re))
-				throw(std::string("received string does not match: ") + Util::dumper("reply", reply_data) + " vs. \"" + match + "\"");
+				throw(transient_exception(boost::format("received string does not match: \"%s\" vs. \"%s\"") % Util::dumper("reply", reply_data) % match));
 
 			break;
 		}
-		catch(const std::string &exception)
+		catch(const transient_exception &e)
 		{
 			if(verbose)
-				std::cout << exception << ", attempt #" << attempt << ", backoff " << timeout << " ms" << std::endl;
+				std::cout << e.what() << ", attempt #" << attempt << ", backoff " << timeout << " ms" << std::endl;
 
 			channel.drain(timeout);
 			timeout *= 2;
@@ -140,7 +141,11 @@ int Util::process(const std::string &data, const std::string *oob_data, std::str
 				{
 					int_value->push_back(stoi(it, 0, 0));
 				}
-				catch(...)
+				catch(std::invalid_argument &)
+				{
+					int_value->push_back(0);
+				}
+				catch(std::out_of_range &)
 				{
 					int_value->push_back(0);
 				}
@@ -152,7 +157,7 @@ int Util::process(const std::string &data, const std::string *oob_data, std::str
 		std::cout << "success at attempt " << attempt << std::endl;
 
 	if(attempt >= max_attempts)
-		throw(std::string("process: receive failed"));
+		throw(hard_exception("process: receive failed"));
 
 	if(debug)
 		std::cout << std::endl << Util::dumper("reply", reply_data) << std::endl;
@@ -172,10 +177,13 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 		retries = process(std::string("flash-read ") + std::to_string(sector) + "\n", nullptr, reply, &data,
 				"OK flash-read: read sector ([0-9]+)", &string_value, &int_value);
 	}
-	catch(std::string &error)
+	catch(const hard_exception &e)
 	{
-		error = std::string("read_sector: ") + error;
-		throw(error);
+		throw(hard_exception(boost::format("read sector: hard exception: %s") % e.what()));
+	}
+	catch(const transient_exception &e)
+	{
+		throw(transient_exception(boost::format("read sector: transient exception: %s") % e.what()));
 	}
 
 	if(data.length() < sector_size)
@@ -187,7 +195,7 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 			std::cout << ", reply: " << reply << std::endl;
 		}
 
-		throw(std::string("read_sector failed"));
+		throw(transient_exception(boost::format("read_sector failed: incorrect length (%u vs. %u)") % sector_size % data.length()));
 	}
 
 	if(int_value[0] != (int)sector)
@@ -195,7 +203,7 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 		if(verbose)
 			std::cout << "flash sector read failed: local sector #" << sector << " != remote sector #" << int_value[0] << std::endl;
 
-		throw(std::string("read_sector_failed"));
+		throw(transient_exception(boost::format("read sector failed: incorrect sector (%u vs. %u)") % sector % int_value[0]));
 	}
 
 	return(retries);
@@ -217,27 +225,35 @@ int Util::write_sector(unsigned int sector, const std::string &data,
 		process_tries = process(command, &data, reply, nullptr,
 				"OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
 	}
-	catch(std::string &error)
+	catch(const transient_exception &e)
 	{
 		if(verbose)
-			std::cout << "flash sector write failed: " << error << ", reply: " << reply << std::endl;
+			std::cout << "flash sector write failed temporarily: " << e.what() << ", reply: " << reply << std::endl;
 
-		error = std::string("write sector failed: ") + error;
-		throw(error);
+		throw(transient_exception(boost::format("write sector failed: %s") % e.what()));
+	}
+	catch(const hard_exception &e)
+	{
+		if(verbose)
+			std::cout << "flash sector write failed: " << e.what() << ", reply: " << reply << std::endl;
+
+		throw(hard_exception(boost::format("write sector failed: %s") % e.what()));
 	}
 
 	if(int_value[0] != (simulate ? 0 : 1))
 	{
 		if(verbose)
 			std::cout << boost::format("flash sector write failed: mode local: %u != mode remote %u\n") % (simulate ? 0 : 1) % int_value[0];
-		throw(std::string("write sector failed: invalid mode"));
+
+		throw(transient_exception(boost::format("write sector failed: invalid mode (%u vs. %u)") % (simulate ? 0 : 1) % int_value[0]));
 	}
 
 	if(int_value[1] != (int)sector)
 	{
 		if(verbose)
 			std::cout << boost::format("flash sector write failed: sector local: %u != sector remote %u\n") % sector % int_value[0];
-		throw(std::string("write sector failed: wrong sector"));
+
+		throw(transient_exception(boost::format("write sector failed: wrong sector (%u vs %u)") % sector % int_value[0]));
 	}
 
 	if(int_value[2] != 0)
@@ -262,27 +278,51 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 		process(std::string("flash-checksum ") + std::to_string(sector) + " " + std::to_string(sectors) + "\n", nullptr,
 				reply, nullptr, "OK flash-checksum: checksummed ([0-9]+) sectors from sector ([0-9]+), checksum: ([0-9a-f]+)", &string_value, &int_value);
 	}
-	catch(std::string &error)
+	catch(const transient_exception &e)
 	{
-		if(verbose)
-			std::cout << "flash sector checksum failed: " << error << ", reply: " << reply << std::endl;
+		boost::format fmt("flash sector checksum failed temporarily: %s, reply: %s");
 
-		error = std::string("get_checksum ") + error;
-		throw(error);
+		fmt % e.what() % reply;
+
+		if(verbose)
+			std::cout << fmt << std::endl;
+
+		throw(transient_exception(fmt));
+	}
+	catch(const hard_exception &e)
+	{
+		boost::format fmt("flash sector checksum failed: %s, reply: %s");
+
+		fmt % e.what() % reply;
+
+		if(verbose)
+			std::cout << fmt << std::endl;
+
+		throw(hard_exception(fmt));
 	}
 
 	if(int_value[0] != (int)sectors)
 	{
+		boost::format fmt("flash sector checksum failed: local sectors (%u) != remote sectors (%u)");
+
+		fmt % sectors % int_value[0];
+
 		if(verbose)
-			std::cout << "flash sector checksum failed: local sectors (" << sectors + ") != remote sectors (" << int_value[0] << ")" << std::endl;
-		throw(std::string("get_checksum failed"));
+			std::cout << fmt << std::endl;
+
+		throw(transient_exception(fmt));
 	}
 
 	if(int_value[1] != (int)sector)
 	{
+		boost::format fmt("flash sector checksum failed: local start sector (%u) != remote start sector (%u)");
+
+		fmt % sector % int_value[1];
+
 		if(verbose)
-			std::cout << "flash sector checksum failed: local start sector (" << sector << ") != remote start sector (" << int_value[1] << ")" << std::endl;
-		throw(std::string("get_checksum failed"));
+			std::cout << fmt << std::endl;
+
+		throw(transient_exception(fmt));
 	}
 
 	checksum = string_value[2];
