@@ -158,7 +158,7 @@ bool GenericSocket::receive(std::string &data, int timeout, struct sockaddr_in *
 	if(poll(&pfd, 1, timeout) != 1)
 	{
 		if(verbose)
-			std::cout << std::endl << std::string("receive: timeout, length: ") << std::to_string(data.length()) << std::endl;
+			std::cout << std::endl << boost::format("receive: timeout, length: %u") << data.length() << std::endl;
 		return(false);
 	}
 
@@ -210,7 +210,7 @@ void GenericSocket::drain(int timeout) const noexcept
 	int packet = 0;
 
 	if(verbose)
-		std::cout << "draining " << timeout << "..." << std::endl;
+		std::cout << boost::format("draining %u...") % timeout << std::endl;
 
 	for(packet = 0; packet < drain_packets; packet++)
 	{
@@ -242,5 +242,5 @@ void GenericSocket::drain(int timeout) const noexcept
 	}
 
 	if(verbose && (packet > 0))
-		std::cout << "drained " << bytes << " bytes in " << packet << " packets" << std::endl;
+		std::cout << boost::format("drained %u bytes in %u packets") % bytes % packet << std::endl;
 }

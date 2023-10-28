@@ -4,7 +4,6 @@
 
 #include <string>
 #include <iostream>
-#include <iomanip>
 #include <boost/format.hpp>
 #include <boost/regex.hpp>
 
@@ -107,7 +106,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		catch(const transient_exception &e)
 		{
 			if(verbose)
-				std::cout << e.what() << ", attempt #" << attempt << ", backoff " << timeout << " ms" << std::endl;
+				std::cout << boost::format("attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
 
 			channel.drain(timeout);
 			timeout *= 2;
@@ -153,7 +152,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 	}
 
 	if(verbose && (attempt > 0))
-		std::cout << "success at attempt " << attempt << std::endl;
+		std::cout << boost::format("success at attempt %u") % attempt << std::endl;
 
 	if(attempt >= max_attempts)
 		throw(hard_exception("process: receive failed"));
@@ -188,11 +187,8 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 	if(data.length() < sector_size)
 	{
 		if(verbose)
-		{
-			std::cout << "flash sector read failed: incorrect length";
-			std::cout << ", expected: " << sector_size << ", received: " << data.length();
-			std::cout << ", reply: " << reply << std::endl;
-		}
+			std::cout << boost::format("flash sector read failed: incorrect length, expected: %u, received: %u, reply: %s") %
+					sector_size % data.length() % reply << std::endl;
 
 		throw(transient_exception(boost::format("read_sector failed: incorrect length (%u vs. %u)") % sector_size % data.length()));
 	}
@@ -200,7 +196,7 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 	if(int_value[0] != (int)sector)
 	{
 		if(verbose)
-			std::cout << "flash sector read failed: local sector #" << sector << " != remote sector #" << int_value[0] << std::endl;
+			std::cout << boost::format("flash sector read failed: local sector #%u != remote sector #%u") % sector % int_value[0] << std::endl;
 
 		throw(transient_exception(boost::format("read sector failed: incorrect sector (%u vs. %u)") % sector % int_value[0]));
 	}
@@ -227,14 +223,14 @@ int Util::write_sector(unsigned int sector, const std::string &data,
 	catch(const transient_exception &e)
 	{
 		if(verbose)
-			std::cout << "flash sector write failed temporarily: " << e.what() << ", reply: " << reply << std::endl;
+			std::cout << boost::format("flash sector write failed temporarily: %s, reply: %s ") % e.what() % reply << std::endl;
 
 		throw(transient_exception(boost::format("write sector failed: %s") % e.what()));
 	}
 	catch(const hard_exception &e)
 	{
 		if(verbose)
-			std::cout << "flash sector write failed: " << e.what() << ", reply: " << reply << std::endl;
+			std::cout << boost::format("flash sector write failed: %s, reply: %s ") % e.what() % reply << std::endl;
 
 		throw(hard_exception(boost::format("write sector failed: %s") % e.what()));
 	}

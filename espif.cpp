@@ -211,13 +211,9 @@ int main(int argc, const char **argv)
 				depth = int_value[5];
 
 				if(option_verbose)
-				{
-					std::cout << "flash update available, current slot: " << flash_slot;
-					std::cout << ", address[0]: 0x" << std::hex << (flash_address[0] * flash_sector_size) << " (sector " << std::dec << flash_address[0] << ")";
-					std::cout << ", address[1]: 0x" << std::hex << (flash_address[1] * flash_sector_size) << " (sector " << std::dec << flash_address[1] << ")";
-					std::cout << ", display graphical dimensions: " << dim_x << "x" << dim_y << " px at depth " << depth;
-					std::cout << std::endl;
-				}
+					std::cout <<
+							boost::format("flash update available, current slot: %u, address[0]: 0x%x (sector %u), address[1]: 0x%x (sector %u), display graphical dimensions: %ux%u px at depth %u") %
+							flash_slot % (flash_address[0] * flash_sector_size) % flash_address[0] % (flash_address[1] * flash_sector_size) % flash_address[1] % dim_x % dim_y % depth << std::endl;
 
 				if(start == -1)
 				{
@@ -266,37 +262,37 @@ int main(int argc, const char **argv)
 	}
 	catch(const po::error &e)
 	{
-		std::cerr << std::endl << "espif: program option exception: " << e.what() << std::endl << options;
+		std::cerr << std::endl << boost::format("espif: program option exception: %s") % e.what() << std::endl << options;
 		return(1);
 	}
 	catch(const hard_exception &e)
 	{
-		std::cerr << std::endl << "espif: error: " << e.what() << std::endl;
+		std::cerr << std::endl << boost::format("espif: error: %s") % e.what() << std::endl;
 		return(1);
 	}
 	catch(const transient_exception &e)
 	{
-		std::cerr << std::endl << "espif: transient exception: " << e.what() << std::endl;
+		std::cerr << std::endl << boost::format("espif: transient exception: %s") % e.what() << std::endl;
 		return(1);
 	}
 	catch(const espif_exception &e)
 	{
-		std::cerr << std::endl << "espif: unknown generic espif exception: " << e.what() << std::endl;
+		std::cerr << std::endl << boost::format("espif: unknown generic espif exception: %s") % e.what() << std::endl;
 		return(1);
 	}
 	catch(const std::exception &e)
 	{
-		std::cerr << std::endl << "espif: standard exception: " << e.what() << std::endl;
+		std::cerr << std::endl << boost::format("espif: standard exception: %s") % e.what() << std::endl;
 		return(1);
 	}
 	catch(const std::string &e)
 	{
-		std::cerr << std::endl << "espif: unknown standard string exception: " << e << std::endl;
+		std::cerr << std::endl << boost::format("espif: unknown standard string exception: %s ") % e << std::endl;
 		return(1);
 	}
 	catch(const char *e)
 	{
-		std::cerr << std::endl << "espif: unknown string exception: " << e << std::endl;
+		std::cerr << std::endl << boost::format("espif: unknown string exception: %s") % e << std::endl;
 		return(1);
 	}
 	catch(...)

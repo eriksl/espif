@@ -10,7 +10,6 @@
 #include <netdb.h>
 #include <string>
 #include <iostream>
-#include <iomanip>
 #include <boost/format.hpp>
 #include <openssl/evp.h>
 #include <Magick++.h>
@@ -65,11 +64,7 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 		gettimeofday(&time_start, 0);
 
 		if(debug)
-		{
-			std::cout << "start read from 0x" << std::hex << sector * sector_size << " (" << std::dec << sector << ")";
-			std::cout << ", length: 0x" << std::hex << sectors * sector_size << " (" << std::dec << sectors << ")";
-			std::cout << std::endl;
-		}
+			std::cout << boost::format("start read from 0x%x (%u), length 0x%x (%u)") % (sector * sector_size) % sector % (sectors * sector_size) % sectors << std::endl;
 
 		hash_ctx = EVP_MD_CTX_new();
 		EVP_DigestInit_ex(hash_ctx, EVP_sha1(), (ENGINE *)0);
@@ -97,13 +92,8 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 			duration = seconds + (useconds / 1000000.0);
 			rate = offset / 1024.0 / duration;
 
-			std::cout << std::setfill(' ');
-			std::cout << "received "	<< std::setw(3) << (offset / 1024) << " kbytes";
-			std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-			std::cout << " at rate "	<< std::setw(3) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-			std::cout << ", received "	<< std::setw(3) << (current - sector) << " sectors";
-			std::cout << ", retries "   << std::setw(2) << retries;
-			std::cout << ", "			<< std::setw(3) << ((offset * 100) / (sectors * sector_size)) << "%       \r";
+			std::cout << boost::format("received %3d kbytes in %2.0f seconds at rate %3.0f kbytes/s, received %3u sectors, retries %2u, %3u%%    \r") %
+					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * sector_size));
 			std::cout.flush();
 		}
 	}
@@ -117,7 +107,7 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 
 	close(file_fd);
 
-	std::cout << std::endl << "checksumming " << sectors << " sectors from " << sector << "..." << std::endl;
+	std::cout << boost::format("checksumming %u sectors from %u...") % sectors % sector << std::endl;
 
 	hash_size = sha1_hash_size;
 	EVP_DigestFinal_ex(hash_ctx, hash, &hash_size);
@@ -129,14 +119,8 @@ void Command::read(const std::string &filename, int sector, int sectors) const
 	if(sha_local_hash_text != sha_remote_hash_text)
 	{
 		if(verbose)
-		{
-			std::cout << "! sector " << sector << "/" << sectors;
-			std::cout << ", address: 0x" << std::hex << (sector * sector_size) << "/0x" << (sectors * sector_size) << std::dec << " read";
-			std::cout << ", checksum failed";
-			std::cout << ", local hash: " << sha_local_hash_text;
-			std::cout << ", remote hash: " << sha_remote_hash_text;
-			std::cout << std::endl;
-		}
+			std::cout << boost::format("! sector %u / %u, address: 0x%x/0x%x read, checksum failed. Local hash: %s, remote hash: %s") %
+					sector % sectors % (sector * sector_size) % (sectors * sector_size) % sha_local_hash_text % sha_remote_hash_text << std::endl;
 
 		throw(hard_exception("checksum read failed"));
 	}
@@ -148,6 +132,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 {
 	int file_fd, length, current, offset, retries;
 	struct timeval time_start, time_now;
+	std::string command;
 	std::string send_string;
 	std::string reply;
 	std::vector<int> int_value;
@@ -180,23 +165,20 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 	{
 		gettimeofday(&time_start, 0);
 
-		std::cout << "start ";
-
 		if(simulate)
-			std::cout << "simulate";
+			command = "simulate";
 		else
 		{
 			if(otawrite)
-				std::cout << "ota ";
+				command = "ota ";
 			else
-				std::cout << "normal ";
+				command = "normal ";
 
-			std::cout << "write";
+			command += "write";
 		}
 
-		std::cout << " at address: 0x" << std::hex << std::setw(6) << std::setfill('0') << (sector * sector_size) << " (sector " << std::dec << sector << ")";
-		std::cout << ", length: " << std::dec << std::setw(0) << (length * sector_size) << " (" << length << " sectors)";
-		std::cout << std::endl;
+		std::cout << boost::format("start %s at address 0x%06x (sector %u), length: %u (%u sectors)") %
+				command % (sector * sector_size) % sector % (length * sector_size) % length << std::endl;
 
 		hash_ctx = EVP_MD_CTX_new();
 		EVP_DigestInit_ex(hash_ctx, EVP_sha1(), (ENGINE *)0);
@@ -224,7 +206,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 				catch(const transient_exception &e)
 				{
 					if(verbose)
-						std::cerr << "command write: " << e.what() << ", try #" << attempt << std::endl;
+						std::cerr << boost::format("command write: %s, try #%u") % e.what() % attempt << std::endl;
 
 					continue;
 				}
@@ -247,16 +229,9 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 			duration = seconds + (useconds / 1000000.0);
 			rate = offset / 1024.0 / duration;
 
-			std::cout << std::setfill(' ');
-			std::cout << "sent "		<< std::setw(4) << (offset / 1024) << " kbytes";
-			std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-			std::cout << " at rate "	<< std::setw(4) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-			std::cout << ", sent "		<< std::setw(3) << (current - sector + 1) << " sectors";
-			std::cout << ", written "	<< std::setw(3) << sectors_written << " sectors";
-			std::cout << ", erased "	<< std::setw(3) << sectors_erased << " sectors";
-			std::cout << ", skipped "	<< std::setw(3) << sectors_skipped << " sectors";
-			std::cout << ", retries "   << std::setw(2) << retries;
-			std::cout << ", "			<< std::setw(3) << (((offset + sector_size) * 100) / (length * sector_size)) << "%       \r";
+			std::cout << boost::format("sent %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %3u sectors, written %3u sectors, erased %3u sectors, skipped %3u sectors, retries %2u, %3u%%     \r") %
+					(offset / 1024) % duration % rate % (current - sector + 1) % sectors_written % sectors_erased % sectors_skipped % retries %
+					(((offset + sector_size) * 100) / (length * sector_size));
 			std::cout.flush();
 		}
 	}
@@ -276,7 +251,7 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 		std::cout << "simulate finished" << std::endl;
 	else
 	{
-		std::cout << "checksumming " << length << " sectors..." << std::endl;
+		std::cout << boost::format("checksumming %u sectors...") % length << std::endl;
 
 		hash_size = sha1_hash_size;
 		EVP_DigestFinal_ex(hash_ctx, hash, &hash_size);
@@ -285,12 +260,6 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 		sha_local_hash_text = Util::sha1_hash_to_text(sha1_hash_size, hash);
 
 		util.get_checksum(sector, length, sha_remote_hash_text);
-
-		if(debug)
-		{
-			std::cout << std::endl << "local checksum:  " << sha_local_hash_text << std::endl;
-			std::cout << std::endl << "remote checksum: " << sha_remote_hash_text << std::endl;
-		}
 
 		if(sha_local_hash_text != sha_remote_hash_text)
 			throw(hard_exception(boost::format("checksum failed: SHA hash differs, local: %u, remote: %s") % sha_local_hash_text % sha_remote_hash_text));
@@ -329,11 +298,7 @@ void Command::verify(const std::string &filename, int sector) const
 		gettimeofday(&time_start, 0);
 
 		if(debug)
-		{
-			std::cout << "start verify from 0x" << std::hex << sector * sector_size << " (" << std::dec << sector << ")";
-			std::cout << ", length: 0x" << std::hex << sectors * sector_size << " (" << std::dec << sectors << ")";
-			std::cout << std::endl;
-		}
+			std::cout << boost::format("start verify from 0x%x (%u), length 0x%x (%u)") % (sector * sector_size) % sector % (sectors * sector_size) % sectors << std::endl;
 
 		retries = 0;
 
@@ -363,13 +328,8 @@ void Command::verify(const std::string &filename, int sector) const
 			duration = seconds + (useconds / 1000000.0);
 			rate = offset / 1024.0 / duration;
 
-			std::cout << std::setfill(' ');
-			std::cout << "received "	<< std::setw(3) << (offset / 1024) << " kbytes";
-			std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-			std::cout << " at rate "	<< std::setw(3) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-			std::cout << ", received "	<< std::setw(3) << (current - sector) << " sectors";
-			std::cout << ", retries "   << std::setw(2) << retries;
-			std::cout << ", "			<< std::setw(3) << ((offset * 100) / (sectors * sector_size)) << "%       \r";
+			std::cout << boost::format("received %3u kbytes in %2.0f seconds at rate %3.0f kbytes/s, received %3u sectors, retries %2u, %3u%%     \r") %
+					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * sector_size));
 			std::cout.flush();
 		}
 	}
@@ -426,14 +386,8 @@ void Command::benchmark(int length) const
 			duration = seconds + (useconds / 1000000.0);
 			rate = current * 4.0 / duration;
 
-			std::cout << std::setfill(' ');
-			std::cout << ((phase == 0) ? "sent     " : "received ");
-			std::cout << std::setw(4) << (current * sector_size / 1024) << " kbytes";
-			std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-			std::cout << " at rate "	<< std::setw(4) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-			std::cout << ", sent "		<< std::setw(4) << (current + 1) << " sectors";
-			std::cout << ", retries "	<< std::setw(2) << retries;
-			std::cout << ", "			<< std::setw(3) << (((current + 1) * 100) / iterations) << "%       \r";
+			std::cout << boost::format("%s %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %04u sectors, retries %2u, %3u%%     \r") %
+					((phase == 0) ? "sent     " : "received ") % (current * sector_size / 1024) % duration % rate % (current + 1) % retries % (((current + 1) * 100) / iterations);
 			std::cout.flush();
 		}
 
@@ -498,7 +452,7 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 			catch(const transient_exception &e)
 			{
 				if(verbose)
-					std::cerr << "command image send sector: " << e.what() << std::endl;
+					std::cerr << boost::format("command image send sector: %s") % e.what() << std::endl;
 
 				continue;
 			}
@@ -554,7 +508,7 @@ void Command::image(int image_slot, const std::string &filename,
 		image.type(MagickCore::TrueColorType);
 
 		if(debug)
-			std::cout << "image loaded from " << filename << ", " << image.columns() << "x" << image.rows() << ", " << image.magick() << std::endl;
+			std::cout << boost::format("image loaded from %s, %ux%u, version %s") % filename % image.columns() % image.rows() % image.magick() << std::endl;
 
 		image.filterType(Magick::TriangleFilter);
 		image.resize(newsize);
@@ -669,13 +623,8 @@ void Command::image(int image_slot, const std::string &filename,
 			duration = seconds + (useconds / 1000000.0);
 			rate = (x * 2 * y) / 1024.0 / duration;
 
-			std::cout << std::setfill(' ');
-			std::cout << "sent "		<< std::setw(4) << ((x * 2 * y) / 1024) << " kbytes";
-			std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-			std::cout << " at rate "	<< std::setw(4) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-			std::cout << ", x "			<< std::setw(3) << x;
-			std::cout << ", y "			<< std::setw(3) << y;
-			std::cout << ", "			<< std::setw(3) << (x * y * 100) / (dim_x * dim_y) << "%       \r";
+			std::cout << boost::format("sent %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, x %3u, y %3u, %3u%%    \r") %
+					((x * 2 * y) / 1024) % duration % rate % x % y % ((x * y * 100) / (dim_x * dim_y));
 			std::cout.flush();
 		}
 
@@ -708,7 +657,7 @@ void Command::image(int image_slot, const std::string &filename,
 	}
 	catch(const Magick::Warning &warning)
 	{
-		std::cout << "image: " << warning.what();
+		std::cout << boost::format("image: %s") % warning.what() << std::endl;
 	}
 }
 
@@ -795,7 +744,7 @@ void Command::image_epaper(const std::string &filename) const
 		image.read(filename);
 
 		if(debug)
-			std::cout << "image loaded from " << filename << ", " << image.columns() << "x" << image.rows() << ", " << image.magick() << std::endl;
+			std::cout << boost::format("image loaded from %s, %ux%u, version: %s") % filename % image.columns() % image.rows() % image.magick() << std::endl;
 
 		image.resize(newsize);
 
@@ -866,13 +815,8 @@ void Command::image_epaper(const std::string &filename) const
 				duration = seconds + (useconds / 1000000.0);
 				rate = all_bytes / 1024.0 / duration;
 
-				std::cout << std::setfill(' ');
-				std::cout << "sent "		<< std::setw(4) << (all_bytes / 1024) << " kbytes";
-				std::cout << " in "			<< std::setw(5) << std::setprecision(2) << std::fixed << duration << " seconds";
-				std::cout << " at rate "	<< std::setw(4) << std::setprecision(0) << std::fixed << rate << " kbytes/s";
-				std::cout << ", x "			<< std::setw(3) << x;
-				std::cout << ", y "			<< std::setw(3) << y;
-				std::cout << ", "			<< std::setw(3) << ((dim_x - 1 - x) * y * 100) / (2 * dim_x * dim_y) << "%       \r";
+				std::cout << boost::format("sent %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, x %3u, y %3u, %3u%%     \r") %
+						(all_bytes / 1024) % duration % rate % x % y % (((dim_x - 1 - x) * y * 100) / (2 * dim_x * dim_y));
 				std::cout.flush();
 			}
 
@@ -892,9 +836,9 @@ void Command::image_epaper(const std::string &filename) const
 	{
 		throw(hard_exception(boost::format("image epaper: load failed: %s") % e.what()));
 	}
-	catch(const Magick::Warning &warning)
+	catch(const Magick::Warning &e)
 	{
-		std::cout << "image epaper: " << warning.what();
+		std::cout << boost::format("image epaper: %s") % e.what() << std::endl;
 	}
 
 	if(debug)
@@ -959,14 +903,14 @@ void Command::send(std::string args) const
 		{
 			unsigned int length = 0;
 
-			std::cout << std::endl << reply_oob.length() << " bytes of OOB data:";
+			std::cout << std::endl << boost::format("%u bytes of OOB data: ") % reply_oob.length();
 
 			for(const auto &it : reply_oob)
 			{
 				if((length++ % 20) == 0)
 					std::cout << std::endl << "    ";
 
-				std::cout << (boost::format("0x%02x ") % (((unsigned int)it) & 0xff));
+				std::cout << boost::format("0x%02x ") % (((unsigned int)it) & 0xff);
 			}
 
 			std::cout << std::endl;
@@ -975,7 +919,7 @@ void Command::send(std::string args) const
 			std::cout << std::endl;
 
 		if(retries > 0)
-			std::cout << retries << " retries" << std::endl;
+			std::cout << boost::format("%u retries") % retries << std::endl;
 	}
 }
 
@@ -1062,7 +1006,7 @@ void Command::multicast(const std::string &args)
 			if(gai_error != 0)
 			{
 				if(verbose)
-					std::cout << "cannot resolve: " << gai_strerror(gai_error) << std::endl;
+					std::cout << boost::format("cannot resolve: %s") % gai_strerror(gai_error) << std::endl;
 
 				hostname = "0.0.0.0";
 			}
@@ -1090,21 +1034,19 @@ void Command::multicast(const std::string &args)
 
 	for(auto &it : multicast_replies)
 	{
-		boost::format fmt("%u.%u.%u.%u");
+		boost::format ip("%u.%u.%u.%u");
 
-		fmt % ((it.first & 0xff000000) >> 24) %
+		ip % ((it.first & 0xff000000) >> 24) %
 				((it.first & 0x00ff0000) >> 16) %
 				((it.first & 0x0000ff00) >>  8) %
 				((it.first & 0x000000ff) >>  0);
 
-		std::cout << std::setw(12) << std::left << fmt.str();
-		std::cout << " " << std::setw(2) << std::right << it.second.count << " ";
-		std::cout << std::setw(12) << std::left << it.second.hostname;
-		std::cout << " " << it.second.text;
-		std::cout << std::endl;
+		std::cout << boost::format("%-12s %2u %-12s %s") %
+				ip % it.second.count % it.second.hostname % it.second.text << std::endl;
 	}
 
-	std::cout << std::endl << multicast_burst << " probes sent, " << total_replies << " replies received, " << total_hosts << " hosts" << std::endl;
+	std::cout << std::endl << boost::format("%u probes sent, %u replies received, %u hosts") %
+			multicast_burst % total_replies % total_hosts << std::endl;
 }
 
 void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool reset, bool notemp) const
@@ -1128,17 +1070,13 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	if(int_value[2] != notemp ? 1 : 0)
 		throw(hard_exception("flash-select failed, local permanent != remote permanent"));
 
-	std::cout << "selected ";
-
-	if(!notemp)
-		std::cout << "one time";
-
-	std::cout << " boot slot" << std::endl;
+	std::cout << boost::format("selected %s boot slot: %u") % (notemp ? "permanent" : "one time") % flash_slot << std::endl;
 
 	if(!reset)
 		return;
 
 	std::cout << "rebooting... ";
+	std::cout.flush();
 
 	packet.clear();
 	packet.append_data("reset\n");
@@ -1170,9 +1108,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 		break;
 	}
 
-	std::cout << std::endl;
-
-	std::cout << "reboot finished" << std::endl;
+	std::cout << std::endl << "reboot finished" << std::endl;
 
 	util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
 
@@ -1181,7 +1117,7 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 
 	if(!notemp)
 	{
-		std::cout << "boot succeeded, permanently selecting boot slot: " << flash_slot << std::endl;
+		std::cout << boost::format("boot succeeded, permanently selecting boot slot: %u") % flash_slot << std::endl;
 
 		send_data = (boost::format("flash-select %u 1") % flash_slot).str();
 		util.process(send_data, "", reply, nullptr, flash_select_expect, &string_value, &int_value);
@@ -1197,5 +1133,5 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	}
 
 	util.process("stats", "", reply, nullptr, "\\s*>\\s*firmware\\s*>\\s*date:\\s*([a-zA-Z0-9: ]+).*", &string_value, &int_value);
-	std::cout << "firmware version: " << string_value[0] << std::endl;
+	std::cout << boost::format("firmware version: %s") % string_value[0] << std::endl;
 }
