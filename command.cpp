@@ -14,7 +14,6 @@
 #include <openssl/evp.h>
 #include <Magick++.h>
 
-// FIXME
 static const char *flash_info_expect = "OK flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)";
 
 enum
@@ -187,8 +186,6 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 
 		for(current = sector; current < (sector + length); current++)
 		{
-			unsigned int attempt;
-
 			memset(sector_buffer, 0xff, sector_size);
 
 			if((::read(file_fd, sector_buffer, sector_size)) <= 0)
@@ -196,26 +193,8 @@ void Command::write(const std::string filename, int sector, bool simulate, bool 
 
 			EVP_DigestUpdate(hash_ctx, sector_buffer, sector_size);
 
-			for(attempt = 4; attempt > 0; attempt--)
-			{
-				try
-				{
-					retries += util.write_sector(current, std::string((const char *)sector_buffer, sizeof(sector_buffer)),
-							sectors_written, sectors_erased, sectors_skipped, simulate);
-				}
-				catch(const transient_exception &e)
-				{
-					if(verbose)
-						std::cerr << boost::format("command write: %s, try #%u") % e.what() % attempt << std::endl;
-
-					continue;
-				}
-
-				break;
-			}
-
-			if(attempt == 0)
-				throw(hard_exception("command write: write sector: no more attempts"));
+			retries += util.write_sector(current, std::string((const char *)sector_buffer, sizeof(sector_buffer)),
+					sectors_written, sectors_erased, sectors_skipped, simulate);
 
 			offset += sector_size;
 
@@ -439,29 +418,10 @@ void Command::image_send_sector(int current_sector, const std::string &data,
 		unsigned int sectors_written, sectors_erased, sectors_skipped;
 		std::string pad;
 		unsigned int pad_length = 4096 - data.length();
-		unsigned int attempt;
 
 		pad.assign(pad_length, 0x00);
 
-		for(attempt = 4; attempt > 0; attempt--)
-		{
-			try
-			{
-				util.write_sector(current_sector, data + pad, sectors_written, sectors_erased, sectors_skipped, false);
-			}
-			catch(const transient_exception &e)
-			{
-				if(verbose)
-					std::cerr << boost::format("command image send sector: %s") % e.what() << std::endl;
-
-				continue;
-			}
-
-			break;
-		}
-
-		if(attempt == 0)
-			throw(hard_exception("command image send sector: write sector: no more attempts"));
+		util.write_sector(current_sector, data + pad, sectors_written, sectors_erased, sectors_skipped, false);
 	}
 }
 

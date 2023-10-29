@@ -105,8 +105,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		}
 		catch(const transient_exception &e)
 		{
-			if(verbose)
-				std::cout << boost::format("attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
+			std::cout << std::endl << boost::format("process attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
 
 			channel.drain(timeout);
 			timeout *= 2;
@@ -114,6 +113,12 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 			continue;
 		}
 	}
+
+	if(verbose && (attempt > 0))
+		std::cerr << std::endl << boost::format("success at attempt %u") % attempt << std::endl;
+
+	if(attempt >= max_attempts)
+		throw(hard_exception("process: no more attempts"));
 
 	if(string_value || int_value)
 	{
@@ -150,12 +155,6 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 			}
 		}
 	}
-
-	if(verbose && (attempt > 0))
-		std::cout << boost::format("success at attempt %u") % attempt << std::endl;
-
-	if(attempt >= max_attempts)
-		throw(hard_exception("process: receive failed"));
 
 	if(debug)
 		std::cout << std::endl << Util::dumper("reply", reply_data) << std::endl;
@@ -211,53 +210,43 @@ int Util::write_sector(unsigned int sector, const std::string &data,
 	std::string reply;
 	std::vector<int> int_value;
 	std::vector<std::string> string_value;
-	int process_tries;
+	unsigned int attempt;
+	unsigned int process_tries;
 
 	command = (boost::format("flash-write %u %u") % (simulate ? 0 : 1) % sector).str();
 
-	try
+	for(attempt = 4; attempt > 0; attempt--)
 	{
-		process_tries = process(command, data,
-				reply, nullptr, "OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
-	}
-	catch(const transient_exception &e)
-	{
-		if(verbose)
-			std::cout << boost::format("flash sector write failed temporarily: %s, reply: %s ") % e.what() % reply << std::endl;
+		try
+		{
+			process_tries = process(command, data,
+					reply, nullptr, "OK flash-write: written mode ([01]), sector ([0-9]+), same ([01]), erased ([01])", &string_value, &int_value);
 
-		throw(transient_exception(boost::format("write sector failed: %s") % e.what()));
-	}
-	catch(const hard_exception &e)
-	{
-		if(verbose)
-			std::cout << boost::format("flash sector write failed: %s, reply: %s ") % e.what() % reply << std::endl;
+			if(int_value[0] != (simulate ? 0 : 1))
+				throw(transient_exception(boost::format("invalid mode (%u vs. %u)") % (simulate ? 0 : 1) % int_value[0]));
 
-		throw(hard_exception(boost::format("write sector failed: %s") % e.what()));
-	}
+			if(int_value[1] != (int)sector)
+				throw(transient_exception(boost::format("wrong sector (%u vs %u)") % sector % int_value[0]));
 
-	if(int_value[0] != (simulate ? 0 : 1))
-	{
-		if(verbose)
-			std::cout << boost::format("flash sector write failed: mode local: %u != mode remote %u\n") % (simulate ? 0 : 1) % int_value[0];
+			if(int_value[2] != 0)
+				skipped++;
+			else
+				written++;
 
-		throw(transient_exception(boost::format("write sector failed: invalid mode (%u vs. %u)") % (simulate ? 0 : 1) % int_value[0]));
-	}
+			if(int_value[3] != 0)
+				erased++;
 
-	if(int_value[1] != (int)sector)
-	{
-		if(verbose)
-			std::cout << boost::format("flash sector write failed: sector local: %u != sector remote %u\n") % sector % int_value[0];
-
-		throw(transient_exception(boost::format("write sector failed: wrong sector (%u vs %u)") % sector % int_value[0]));
+			break;
+		}
+		catch(const transient_exception &e)
+		{
+			std::cerr << std::endl << boost::format("flash sector write failed temporarily: %s, reply: %s ") % e.what() % reply << std::endl;
+			continue;
+		}
 	}
 
-	if(int_value[2] != 0)
-		skipped++;
-	else
-		written++;
-
-	if(int_value[3] != 0)
-		erased++;
+	if(attempt == 0)
+		throw(hard_exception("write sector: no more attempts"));
 
 	return(process_tries);
 }

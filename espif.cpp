@@ -14,9 +14,6 @@ enum
 	flash_sector_size = 4096,
 };
 
-// FIXME
-static const char *flash_info_expect = "OK flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)";
-
 static bool option_raw = false;
 static bool option_verbose = false;
 static bool option_debug = false;
@@ -159,7 +156,7 @@ int main(int argc, const char **argv)
 		{
 			if(cmd_broadcast || cmd_multicast)
 				command.multicast(args);
-			else // FIXME turn this into a command
+			else
 			{
 				start = -1;
 
@@ -196,7 +193,9 @@ int main(int argc, const char **argv)
 
 				try
 				{
-					util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
+					util.process("flash-info", "", reply, nullptr,
+							"OK flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)",
+							&string_value, &int_value);
 				}
 				catch(const espif_exception &e)
 				{
