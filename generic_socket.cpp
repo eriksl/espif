@@ -36,8 +36,14 @@ void GenericSocket::connect()
 {
 	struct addrinfo hints;
 	struct addrinfo *res = nullptr;
+	int socket_argument;
 
-	if((socket_fd = socket(AF_INET, tcp ? SOCK_STREAM : SOCK_DGRAM, 0)) < 0)
+	if(tcp)
+		socket_argument = SOCK_STREAM | SOCK_NONBLOCK;
+	else
+		socket_argument = SOCK_DGRAM;
+
+	if((socket_fd = socket(AF_INET, socket_argument, 0)) < 0)
 		throw(hard_exception("socket failed"));
 
 	memset(&hints, 0, sizeof(hints));
@@ -90,8 +96,26 @@ void GenericSocket::connect()
 			throw(hard_exception("multicast: cannot join mc group"));
 	}
 
-	if(tcp && ::connect(socket_fd, (const struct sockaddr *)&saddr, sizeof(saddr)))
-		throw(hard_exception("connect failed"));
+	if(tcp)
+	{
+		struct pollfd pfd;
+
+		pfd.fd = socket_fd;
+		pfd.events = POLLOUT;
+		pfd.revents = 0;
+
+		if((::connect(socket_fd, (const struct sockaddr *)&saddr, sizeof(saddr))) && (errno != EINPROGRESS))
+			throw(hard_exception("tcp connect: connect failed"));
+
+		if(poll(&pfd, 1, 500) != 1)
+			throw(hard_exception("tcp connect: timeout"));
+
+		if(pfd.revents & (POLLERR | POLLHUP))
+			throw(hard_exception("tcp connect: connect event error"));
+
+		if(!(pfd.revents & POLLOUT))
+			throw(hard_exception("tcp connect: connect event unfinished"));
+	}
 }
 
 void GenericSocket::disconnect() noexcept
