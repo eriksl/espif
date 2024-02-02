@@ -104,17 +104,24 @@ void GenericSocket::connect()
 		pfd.events = POLLOUT;
 		pfd.revents = 0;
 
-		if((::connect(socket_fd, (const struct sockaddr *)&saddr, sizeof(saddr))) && (errno != EINPROGRESS))
-			throw(hard_exception("tcp connect: connect failed"));
+		try
+		{
+			if((::connect(socket_fd, (const struct sockaddr *)&saddr, sizeof(saddr))) && (errno != EINPROGRESS))
+				throw("tcp connect: connect failed");
 
-		if(poll(&pfd, 1, 500) != 1)
-			throw(hard_exception("tcp connect: timeout"));
+			if(poll(&pfd, 1, 500) != 1)
+				throw("tcp connect: timeout");
 
-		if(pfd.revents & (POLLERR | POLLHUP))
-			throw(hard_exception("tcp connect: connect event error"));
+			if(pfd.revents & (POLLERR | POLLHUP))
+				throw("tcp connect: connect event error");
 
-		if(!(pfd.revents & POLLOUT))
-			throw(hard_exception("tcp connect: connect event unfinished"));
+			if(!(pfd.revents & POLLOUT))
+				throw("tcp connect: connect event unfinished");
+		}
+		catch(const char *e)
+		{
+			throw(hard_exception(host + ": " + e));
+		}
 	}
 }
 
