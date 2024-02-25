@@ -34,7 +34,7 @@ GetOptions(
 			"no-request-checksum" =>	\$option_no_request_checksum,
 			"use-tcp" =>				\$option_use_tcp,
 			"dontwait" =>				\$option_dontwait,
-			"broadcast-group" =>		\$option_broadcast_group_mask,
+			"broadcast-group=i" =>		\$option_broadcast_group_mask,
 			"multicast-burst" =>		\$option_multicast_burst);
 
 if(!defined($option_host))
@@ -50,7 +50,7 @@ my($capture);
 
 if($option_broadcast || $option_multicast)
 {
-	$command->multicast(join(" ", @ARGV), $capture);
+	$capture = $command->multicast(join(" ", @ARGV));
 }
 else
 {
