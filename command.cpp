@@ -1004,7 +1004,7 @@ std::string Command::multicast(const std::string &args)
 				((it.first & 0x0000ff00) >>  8) %
 				((it.first & 0x000000ff) >>  0);
 
-		output.append((boost::format("%-12s %2u %-12s %s\n") % ip % it.second.count % it.second.hostname % it.second.text).str());
+		output.append((boost::format("%-14s %2u %-12s %s\n") % ip % it.second.count % it.second.hostname % it.second.text).str());
 	}
 
 	output.append((boost::format("\n%u probes sent, %u replies received, %u hosts\n") % multicast_burst % total_replies % total_hosts).str());
