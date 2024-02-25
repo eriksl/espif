@@ -54,7 +54,7 @@ std::string Util::sha1_hash_to_text(unsigned int length, const unsigned char *ha
 int Util::process(const std::string &data, const std::string &oob_data, std::string &reply_data, std::string *reply_oob_data,
 		const char *match, std::vector<std::string> *string_value, std::vector<int> *int_value) const
 {
-	enum { max_attempts = 4 };
+	enum { max_attempts = 8 };
 	unsigned int attempt;
 	Packet send_packet(data, oob_data);
 	std::string send_data;
@@ -71,7 +71,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 
 	packet = send_packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask);
 
-	timeout = 200;
+	timeout = 100;
 
 	for(attempt = 0; attempt < max_attempts; attempt++)
 	{
