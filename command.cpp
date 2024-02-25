@@ -1042,34 +1042,10 @@ void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool rese
 	packet.append_data("reset\n");
 	send_data = packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask);
 	channel.send(send_data);
-
-	for(unsigned int ix = 0; ix < 30; ix++)
-	{
-		try
-		{
-			channel.disconnect();
-			channel.connect();
-			util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
-		}
-		catch(const transient_exception &e)
-		{
-			if(verbose)
-				std::cerr << e.what();
-			else
-			{
-				std::cout << ix << " ";
-				std::flush(std::cout);
-			}
-
-			usleep(100000);
-			continue;
-		}
-
-		break;
-	}
-
-	std::cout << std::endl << "reboot finished" << std::endl;
-
+	channel.disconnect();
+	channel.connect();
+	util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
+	std::cout << "reboot finished" << std::endl;
 	util.process("flash-info", "", reply, nullptr, flash_info_expect, &string_value, &int_value);
 
 	if(int_value[0] != (int)flash_slot)
