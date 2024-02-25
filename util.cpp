@@ -105,7 +105,8 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		}
 		catch(const transient_exception &e)
 		{
-			std::cout << std::endl << boost::format("process attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
+			if(verbose)
+				std::cout << boost::format("process attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
 
 			channel.drain(timeout);
 			timeout *= 2;
@@ -115,7 +116,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 	}
 
 	if(verbose && (attempt > 0))
-		std::cerr << std::endl << boost::format("success at attempt %u") % attempt << std::endl;
+		std::cerr << boost::format("success at attempt %u") % attempt << std::endl;
 
 	if(attempt >= max_attempts)
 		throw(hard_exception("process: no more attempts"));

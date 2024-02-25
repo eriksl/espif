@@ -189,7 +189,7 @@ bool GenericSocket::receive(std::string &data, int timeout, struct sockaddr_in *
 	if(poll(&pfd, 1, timeout) != 1)
 	{
 		if(verbose)
-			std::cout << std::endl << boost::format("receive: timeout, length: %u") << data.length() << std::endl;
+			std::cout << boost::format("receive: timeout, length: %u") % data.length() << std::endl;
 		return(false);
 	}
 
