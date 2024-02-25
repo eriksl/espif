@@ -1,7 +1,7 @@
 #ifndef _exception_h_
 #define _exception_h_
 
-#include <stdexcept>
+#include <exception>
 #include <string>
 #include <boost/format.hpp>
 

@@ -1,3 +1,8 @@
 *.o
 *.h.gch
 .*.swp
+/Esp
+Esp::IF.so
+Esp::IF_wrap.cpp
+IF.pm
+espif

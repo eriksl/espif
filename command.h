@@ -24,8 +24,8 @@ class Command
 		void image(int image_slot, const std::string &filename,
 				unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout) const;
 		void image_epaper(const std::string &filename) const;
-		void send(std::string args) const;
-		void multicast(const std::string &args);
+		std::string send(std::string args) const;
+		std::string multicast(const std::string &args);
 		void commit_ota(unsigned int flash_slot, unsigned int sector, bool reset, bool notemp) const;
 
 	private:

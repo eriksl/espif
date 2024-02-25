@@ -151,11 +151,11 @@ int main(int argc, const char **argv)
 				option_broadcast_group_mask, option_multicast_burst, flash_sector_size);
 
 		if(selected == 0)
-			command.send(args);
+			std::cout << command.send(args);
 		else
 		{
 			if(cmd_broadcast || cmd_multicast)
-				command.multicast(args);
+				std::cout << command.multicast(args);
 			else
 			{
 				start = -1;

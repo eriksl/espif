@@ -821,7 +821,7 @@ void Command::image_epaper(const std::string &filename) const
 	}
 }
 
-void Command::send(std::string args) const
+std::string Command::send(std::string args) const
 {
 	std::string arg;
 	size_t current;
@@ -831,6 +831,7 @@ void Command::send(std::string args) const
 	std::string receive_data;
 	std::string reply;
 	std::string reply_oob;
+	std::string output;
 	int retries;
 
 	if(dontwait)
@@ -838,7 +839,7 @@ void Command::send(std::string args) const
 		if(daemon(0, 0))
 		{
 			perror("daemon");
-			return;
+			return(std::string(""));
 		}
 	}
 
@@ -857,33 +858,34 @@ void Command::send(std::string args) const
 
 		retries = util.process(arg, "", reply, &reply_oob);
 
-		std::cout << reply;
+		output.append(reply);
 
 		if(reply_oob.length() > 0)
 		{
 			unsigned int length = 0;
 
-			std::cout << std::endl << boost::format("%u bytes of OOB data: ") % reply_oob.length();
+			output.append((boost::format("\n%u bytes of OOB data: ") % reply_oob.length()).str());
 
 			for(const auto &it : reply_oob)
 			{
 				if((length++ % 20) == 0)
-					std::cout << std::endl << "    ";
+					output.append("\n    ");
 
-				std::cout << boost::format("0x%02x ") % (((unsigned int)it) & 0xff);
+				output.append((boost::format("0x%02x ") % (((unsigned int)it) & 0xff)).str());
 			}
 
-			std::cout << std::endl;
 		}
-		else
-			std::cout << std::endl;
 
-		if(retries > 0)
-			std::cout << boost::format("%u retries") % retries << std::endl;
+		output.append("\n");
+
+		if((retries > 0) && verbose)
+			std::cout << boost::format("%u retries\n") % retries;
 	}
+
+	return(output);
 }
 
-void Command::multicast(const std::string &args)
+std::string Command::multicast(const std::string &args)
 {
 	Packet send_packet(args);
 	Packet receive_packet;
@@ -908,6 +910,7 @@ void Command::multicast(const std::string &args)
 	int total_replies, total_hosts;
 	int run;
 	uint32_t transaction_id;
+	std::string output;
 
 	transaction_id = prn();
 	packet = send_packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask, &transaction_id);
@@ -921,7 +924,7 @@ void Command::multicast(const std::string &args)
 			usleep(100000);
 		}
 
-		return;
+		return(std::string(""));
 	}
 
 	total_replies = total_hosts = 0;
@@ -1001,12 +1004,12 @@ void Command::multicast(const std::string &args)
 				((it.first & 0x0000ff00) >>  8) %
 				((it.first & 0x000000ff) >>  0);
 
-		std::cout << boost::format("%-12s %2u %-12s %s") %
-				ip % it.second.count % it.second.hostname % it.second.text << std::endl;
+		output.append((boost::format("%-12s %2u %-12s %s\n") % ip % it.second.count % it.second.hostname % it.second.text).str());
 	}
 
-	std::cout << std::endl << boost::format("%u probes sent, %u replies received, %u hosts") %
-			multicast_burst % total_replies % total_hosts << std::endl;
+	output.append((boost::format("\n%u probes sent, %u replies received, %u hosts\n") % multicast_burst % total_replies % total_hosts).str());
+
+	return(output);
 }
 
 void Command::commit_ota(unsigned int flash_slot, unsigned int sector, bool reset, bool notemp) const

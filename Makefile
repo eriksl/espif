@@ -35,42 +35,72 @@ CCWARNINGS		:=	-Wall -Wextra -Werror \
 						-Wno-packed \
 						-Wno-unused-parameter \
 
-CFLAGS			:=	-pipe -Os -g -std=gnu11 -fdiagnostics-color=auto \
-						-fno-inline -mlongcalls -mno-serialize-volatile -mno-target-align \
-						-fno-math-errno -fno-printf-return-value \
-						-ftree-vrp \
-						-ffunction-sections -fdata-sections
-
 CPP				:=	g++
 
 MAGICK_CFLAGS	!=	pkg-config --cflags Magick++
 MAGICK_LIBS		!=	pkg-config --libs Magick++
 
-CPPFLAGS		:= -O3 -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers $(MAGICK_CFLAGS) \
+CPPFLAGS		:= -O3 -fPIC -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers $(MAGICK_CFLAGS) \
 					-lssl -lcrypto -lpthread -lboost_system -lboost_program_options -lboost_regex -lboost_thread $(MAGICK_LIBS) \
 
-.PRECIOUS:		*.cpp
-.PHONY:			all
+OBJS			:= command.o generic_socket.o packet.o util.o exception.o
+HDRS			:= command.h generic_socket.h packet.h util.h exception.h
+BIN				:= espif
+SWIG_DIR		:= Esp
+SWIG_SRC		:= Esp\:\:IF.i
+SWIG_PM			:= IF.pm
+SWIG_PM_2		:= $(SWIG_DIR)/IF.pm
+SWIG_WRAP_SRC	:= Esp\:\:IF_wrap.cpp
+SWIG_WRAP_OBJ	:= Esp\:\:IF_wrap.o
+SWIG_SO			:= Esp\:\:IF.so
+SWIG_SO_2		:= $(SWIG_DIR)/IF.so
 
-all:			espif
+.PRECIOUS:		*.cpp *.i
+.PHONY:			all swig
+
+all:			$(BIN) swig
+
+swig:			$(SWIG_PM_2) $(SWIG_SO_2)
 
 clean:
 				$(VECHO) "CLEAN"
-				-$(Q) rm -f $(OBJS) espif.h.gch espif 2> /dev/null
-
-OBJS			:= command.o generic_socket.o packet.o util.o exception.o espif.o
-HDRS			:= command.h generic_socket.h packet.h util.h exception.h
+				-$(Q) rm -rf $(OBJS) espif.o $(BIN) $(SWIG_WRAP_SRC) $(SWIG_PM) $(SWIG_PM_2) $(SWIG_WRAP_OBJ) $(SWIG_SO) $(SWIG_SO_2) $(SWIG_DIR) 2> /dev/null
 
 command.o:		$(HDRS)
 espif.o:		$(HDRS)
 generic_socket.o: $(HDRS)
 packet.o:		$(HDRS)
 util.o:			$(HDRS)
+$(SWIG_PM):		$(HDRS)
+$(SWIG_SRC):	$(HDRS)
 
 %.o:			%.cpp
-				$(VECHO) "CPP $<"
+				$(VECHO) "CPP $< -> $@"
 				$(Q) $(CPP) $(CPPFLAGS) -c $< -o $@
 
-espif:			$(OBJS)
-				$(VECHO) "LD $(OBJS)"
-				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) -o $@
+$(BIN):			$(OBJS) espif.o
+				$(VECHO) "LD $(OBJS) espif.o -> $@"
+				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) espif.o -o $@
+
+$(SWIG_WRAP_SRC) $(SWIG_PM): $(SWIG_SRC)
+				$(VECHO) "SWIG $< -> $@"
+				$(Q) swig -c++ -cppext cpp -perl5 $<
+
+$(SWIG_WRAP_OBJ):	$(SWIG_WRAP_SRC)
+				$(VECHO) "SWIG CPP $< -> $@"
+				$(Q) $(CPP) $(CPPFLAGS) -Wno-unused-parameter \
+						`perl -MConfig -e 'print join(" ", @Config{qw(ccflags optimize cccdlflags)}, "-I$$Config{archlib}/CORE")'` -c $< -o $@
+
+$(SWIG_SO):		$(SWIG_WRAP_OBJ) $(OBJS)
+				$(VECHO) "SWIG LD $< -> $@"
+				$(Q) $(CPP) $(CPPFLAGS) `perl -MConfig -e 'print $$Config{lddlflags}'` $(SWIG_WRAP_OBJ) $(OBJS) -o $@
+
+$(SWIG_PM_2):	$(SWIG_PM)
+				$(VECHO) "SWIG FINISH PM $< -> $@"
+				mkdir -p Esp
+				cp $(SWIG_PM) $(SWIG_PM_2)
+
+$(SWIG_SO_2):	$(SWIG_SO) $(SWIG_PM)
+				$(VECHO) "SWIG FINISH SO $< -> $@"
+				mkdir -p Esp
+				cp $(SWIG_SO) $(SWIG_SO_2)
