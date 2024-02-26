@@ -8,7 +8,11 @@
 
 class Util
 {
-	public:
+	friend class Command;
+	friend class Espif;
+	friend class GenericSocket;
+
+	protected:
 
 		Util() = delete;
 		Util(GenericSocket &channel, bool verbose, bool debug, bool raw, bool provide_checksum, bool request_checksum, unsigned int broadcast_group_mask) noexcept;
@@ -24,6 +28,7 @@ class Util
 				unsigned int &written, unsigned int &erased, unsigned int &skipped, bool simulate) const;
 		void get_checksum(unsigned int sector, unsigned int sectors,
 				std::string &checksum) const;
+
 	private:
 
 		GenericSocket &channel;

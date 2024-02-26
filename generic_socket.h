@@ -5,6 +5,10 @@
 
 class GenericSocket
 {
+	friend class Espif;
+	friend class Command;
+	friend class Util;
+
 	private:
 
 		int socket_fd;
@@ -15,7 +19,6 @@ class GenericSocket
 		bool tcp;
 		const bool broadcast, multicast, verbose;
 
-	public:
 		GenericSocket(const std::string &host, const std::string &port, unsigned int buffer_size, bool tcp, bool broadcast, bool multicast, bool verbose);
 		~GenericSocket() noexcept;
 

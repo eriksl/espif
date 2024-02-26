@@ -147,11 +147,11 @@ int main(int argc, const char **argv)
 					option_broadcast_group_mask, option_multicast_burst);
 
 		if(selected == 0)
-			std::cout << espif.command().send(args);
+			std::cout << espif.send(args);
 		else
 		{
 			if(cmd_broadcast || cmd_multicast)
-				std::cout << espif.command().multicast(args);
+				std::cout << espif.multicast(args);
 			else
 			{
 				start = -1;
@@ -189,7 +189,7 @@ int main(int argc, const char **argv)
 
 				try
 				{
-					espif.util().process("flash-info", "", reply, nullptr,
+					espif.process("flash-info", "", reply, nullptr,
 							"OK flash function available, slots: 2, current: ([0-9]+), sectors: \\[ ([0-9]+), ([0-9]+) \\], display: ([0-9]+)x([0-9]+)px@([0-9]+)",
 							&string_value, &int_value);
 				}
@@ -228,30 +228,30 @@ int main(int argc, const char **argv)
 				}
 
 				if(cmd_read)
-					espif.command().read(filename, start, length);
+					espif.read(filename, start, length);
 				else
 					if(cmd_verify)
-						espif.command().verify(filename, start);
+						espif.verify(filename, start);
 					else
 						if(cmd_simulate)
-							espif.command().write(filename, start, true, false);
+							espif.write(filename, start, true, false);
 						else
 							if(cmd_write)
 							{
-								espif.command().write(filename, start, false, otawrite);
+								espif.write(filename, start, false, otawrite);
 
 								if(otawrite && !nocommit)
-									espif.command().commit_ota(flash_slot, start, !noreset, notemp);
+									espif.commit_ota(flash_slot, start, !noreset, notemp);
 							}
 							else
 								if(cmd_benchmark)
-									espif.command().benchmark(length);
+									espif.benchmark(length);
 								else
 									if(cmd_image)
-										espif.command().image(image_slot, filename, dim_x, dim_y, depth, image_timeout);
+										espif.image(image_slot, filename, dim_x, dim_y, depth, image_timeout);
 									else
 										if(cmd_image_epaper)
-											espif.command().image_epaper(filename);
+											espif.image_epaper(filename);
 			}
 		}
 	}
