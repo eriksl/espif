@@ -6,8 +6,18 @@
 class GenericSocket
 {
 	friend class Espif;
-	friend class Command;
 	friend class Util;
+
+	protected:
+
+		GenericSocket(const std::string &host, const std::string &port, unsigned int buffer_size, bool tcp, bool broadcast, bool multicast, bool verbose);
+		~GenericSocket() noexcept;
+
+		bool send(std::string &data, int timeout = 500) const;
+		bool receive(std::string &data, int timeout = 500, struct sockaddr_in *remote_host = nullptr) const;
+		void drain(int timeout = 500) const noexcept;
+		void connect();
+		void disconnect() noexcept;
 
 	private:
 
@@ -18,14 +28,5 @@ class GenericSocket
 		const unsigned int buffer_size;
 		bool tcp;
 		const bool broadcast, multicast, verbose;
-
-		GenericSocket(const std::string &host, const std::string &port, unsigned int buffer_size, bool tcp, bool broadcast, bool multicast, bool verbose);
-		~GenericSocket() noexcept;
-
-		bool send(std::string &data, int timeout = 500) const;
-		bool receive(std::string &data, int timeout = 500, struct sockaddr_in *remote_host = nullptr) const;
-		void drain(int timeout = 500) const noexcept;
-		void connect();
-		void disconnect() noexcept;
 };
 #endif

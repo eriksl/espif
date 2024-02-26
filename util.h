@@ -8,7 +8,6 @@
 
 class Util
 {
-	friend class Command;
 	friend class Espif;
 	friend class GenericSocket;
 

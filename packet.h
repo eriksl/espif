@@ -15,7 +15,11 @@ extern "C" {
 
 class Packet
 {
-	public:
+	friend class Espif;
+	friend class Util;
+
+	protected:
+
 		Packet(Packet &) = delete;
 		Packet();
 		Packet(const std::string &data, const std::string &oob_data = "");
@@ -27,6 +31,7 @@ class Packet
 		bool complete();
 
 	private:
+
 		std::string data;
 		std::string oob_data;
 		packet_header_t packet_header;
