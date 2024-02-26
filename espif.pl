@@ -2,7 +2,6 @@
 
 use strict;
 use warnings;
-use lib qw(. ./Esp);
 use Esp::IF;
 use Getopt::Long;
 
