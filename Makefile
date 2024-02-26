@@ -43,8 +43,8 @@ MAGICK_LIBS		!=	pkg-config --libs Magick++
 CPPFLAGS		:= -O3 -fPIC -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers $(MAGICK_CFLAGS) \
 					-lssl -lcrypto -lpthread -lboost_system -lboost_program_options -lboost_regex -lboost_thread $(MAGICK_LIBS) \
 
-OBJS			:= command.o generic_socket.o packet.o util.o exception.o
-HDRS			:= command.h generic_socket.h packet.h util.h exception.h
+OBJS			:= command.o espif.o generic_socket.o packet.o util.o exception.o
+HDRS			:= command.h espif.h generic_socket.h packet.h util.h exception.h
 BIN				:= espif
 SWIG_DIR		:= Esp
 SWIG_SRC		:= Esp\:\:IF.i
@@ -64,11 +64,12 @@ swig:			$(SWIG_PM_2) $(SWIG_SO_2)
 
 clean:
 				$(VECHO) "CLEAN"
-				-$(Q) rm -rf $(OBJS) espif.o $(BIN) $(SWIG_WRAP_SRC) $(SWIG_PM) $(SWIG_PM_2) $(SWIG_WRAP_OBJ) $(SWIG_SO) $(SWIG_SO_2) $(SWIG_DIR) 2> /dev/null
+				-$(Q) rm -rf $(OBJS) main.o $(BIN) $(SWIG_WRAP_SRC) $(SWIG_PM) $(SWIG_PM_2) $(SWIG_WRAP_OBJ) $(SWIG_SO) $(SWIG_SO_2) $(SWIG_DIR) 2> /dev/null
 
 command.o:		$(HDRS)
 espif.o:		$(HDRS)
 generic_socket.o: $(HDRS)
+main.o:			$(HDRS)
 packet.o:		$(HDRS)
 util.o:			$(HDRS)
 $(SWIG_PM):		$(HDRS)
@@ -78,9 +79,9 @@ $(SWIG_SRC):	$(HDRS)
 				$(VECHO) "CPP $< -> $@"
 				$(Q) $(CPP) $(CPPFLAGS) -c $< -o $@
 
-$(BIN):			$(OBJS) espif.o
-				$(VECHO) "LD $(OBJS) espif.o -> $@"
-				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) espif.o -o $@
+$(BIN):			$(OBJS) main.o
+				$(VECHO) "LD $(OBJS) main.o -> $@"
+				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) main.o -o $@
 
 $(SWIG_WRAP_SRC) $(SWIG_PM): $(SWIG_SRC)
 				$(VECHO) "SWIG $< -> $@"

@@ -41,19 +41,20 @@ if(!defined($option_host))
 	die("host required") if(!defined($option_host = shift(@ARGV)));
 }
 
-my($channel) = new Esp::IF::GenericSocket($option_host, $option_port, $option_flash_sector_size, $option_use_tcp, $option_broadcast, $option_multicast, $option_verbose);
-my($util) = new Esp::IF::Util($channel, $option_verbose, $option_debug, $option_raw, !$option_no_provide_checksum, $option_no_request_checksum, $option_broadcast_group_mask);
-my($command) = new Esp::IF::Command($util, $channel, $option_raw, $option_no_provide_checksum, $option_no_request_checksum, $option_dontwait, $option_debug,
-		$option_verbose, $option_broadcast_group_mask, $option_multicast_burst, $option_flash_sector_size);
+my($espif) = new Esp::IF::Espif($option_host, $option_port,
+					$option_verbose, $option_debug, $option_broadcast, $option_multicast, $option_use_tcp, $option_raw,
+					$option_no_provide_checksum, $option_no_request_checksum, $option_dontwait,
+					$option_broadcast_group_mask, $option_multicast_burst);
+
 my($capture);
 
 if($option_broadcast || $option_multicast)
 {
-	$capture = $command->multicast(join(" ", @ARGV));
+	$capture = $espif->command()->multicast(join(" ", @ARGV));
 }
 else
 {
-	$capture = $command->send(join(" ", @ARGV));
+	$capture = $espif->command()->send(join(" ", @ARGV));
 }
 
 printf("%s", $capture);

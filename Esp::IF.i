@@ -6,6 +6,7 @@
 #include "command.h"
 #include "generic_socket.h"
 #include "util.h"
+#include "espif.h"
 #include "exception.h"
 %}
 
@@ -56,3 +57,4 @@
 %include "command.h"
 %include "generic_socket.h"
 %include "util.h"
+%include "espif.h"
