@@ -13,10 +13,11 @@ class Espif
 	public:
 
 		Espif() = delete;
-		Espif(std::string host, std::string command_port, bool use_tcp, bool raw, bool broadcast, bool multicast,
-				bool no_provide_checksum, bool no_request_checksum,
-				bool dontwait, bool debug, bool verbose,
-				unsigned int broadcast_group_mask, unsigned int multicast_burst, unsigned int sector_size = 4096 /* FIXME */) noexcept;
+		Espif(std::string host, std::string command_port = "24", bool use_tcp = false,
+				bool broadcast = false, bool multicast = false, bool raw = false,
+				bool no_provide_checksum = false, bool no_request_checksum = false,
+				bool dontwait = false, bool debug = false, bool verbose = false,
+				unsigned int broadcast_group_mask = 0, unsigned int multicast_burst = 3, unsigned int sector_size = 4096 /* FIXME */);
 
 		void read(const std::string &filename, int sector, int sectors) const;
 		void write(const std::string filename, int sector, bool simulate, bool otawrite) const;

@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Esp::IF;
 use Getopt::Long;
+use Try::Tiny;
 
 my($option_host);
 my($option_port) = "24";
@@ -19,6 +20,7 @@ my($option_use_tcp) = 0;
 my($option_dontwait) = 0;
 my($option_broadcast_group_mask) = 0;
 my($option_multicast_burst) = 1;
+my($capture);
 
 GetOptions(
 			"host=s" =>					\$option_host,
@@ -41,20 +43,25 @@ if(!defined($option_host))
 	die("host required") if(!defined($option_host = shift(@ARGV)));
 }
 
-my($espif) = new Esp::IF::Espif($option_host, $option_port, $option_use_tcp, $option_raw, $option_broadcast, $option_multicast, 
-					$option_no_provide_checksum, $option_no_request_checksum,
-					$option_dontwait, $option_debug, $option_verbose,
-					$option_broadcast_group_mask, $option_multicast_burst);
-
-my($capture);
-
-if($option_broadcast || $option_multicast)
+try
 {
-	$capture = $espif->multicast(join(" ", @ARGV));
+	my($espif) = new Esp::IF::Espif($option_host, $option_port, $option_use_tcp, $option_broadcast, $option_multicast, $option_raw,
+						$option_no_provide_checksum, $option_no_request_checksum,
+						$option_dontwait, $option_debug, $option_verbose,
+						$option_broadcast_group_mask, $option_multicast_burst);
+
+	if($option_broadcast || $option_multicast)
+	{
+		$capture = $espif->multicast(join(" ", @ARGV));
+	}
+	else
+	{
+		$capture = $espif->send(join(" ", @ARGV));
+	}
 }
-else
+catch
 {
-	$capture = $espif->send(join(" ", @ARGV));
-}
+	$capture = "* FAILED *\n";
+};
 
 printf("%s", $capture);

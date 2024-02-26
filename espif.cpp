@@ -24,7 +24,7 @@ enum
 Espif::Espif(std::string host, std::string command_port, bool use_tcp, bool broadcast, bool multicast, bool raw_in,
 		bool no_provide_checksum_in, bool no_request_checksum_in,
 		bool dontwait_in, bool debug_in, bool verbose_in,
-		unsigned int broadcast_group_mask_in, unsigned int multicast_burst_in, unsigned int sector_size_in) noexcept
+		unsigned int broadcast_group_mask_in, unsigned int multicast_burst_in, unsigned int sector_size_in)
 	:
 		raw(raw_in), provide_checksum(!no_provide_checksum_in), request_checksum(!no_request_checksum_in), dontwait(dontwait_in), debug(debug_in), verbose(verbose_in),
 		broadcast_group_mask(broadcast_group_mask_in), multicast_burst(multicast_burst_in), sector_size(sector_size_in),
