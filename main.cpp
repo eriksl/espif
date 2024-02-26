@@ -4,6 +4,11 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
+enum
+{
+	flash_sector_size = 4096,
+};
+
 namespace po = boost::program_options;
 
 static bool option_raw = false;
@@ -203,7 +208,7 @@ int main(int argc, const char **argv)
 				if(option_verbose)
 					std::cout <<
 							boost::format("flash update available, current slot: %u, address[0]: 0x%x (sector %u), address[1]: 0x%x (sector %u), display graphical dimensions: %ux%u px at depth %u") %
-							flash_slot % (flash_address[0] * 4096 /* FIXME */) % flash_address[0] % (flash_address[1] * 4096 /* FIXME */) % flash_address[1] % dim_x % dim_y % depth << std::endl;
+							flash_slot % (flash_address[0] * flash_sector_size) % flash_address[0] % (flash_address[1] * flash_sector_size) % flash_address[1] % dim_x % dim_y % depth << std::endl;
 
 				if(start == -1)
 				{
