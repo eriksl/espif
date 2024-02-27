@@ -1,7 +1,9 @@
 #ifndef _util_h_
 #define _util_h_
+
 #include "generic_socket.h"
 #include "util.h"
+#include "espifconfig.h"
 
 #include <string>
 #include <vector>
@@ -14,7 +16,7 @@ class Util
 	protected:
 
 		Util() = delete;
-		Util(GenericSocket &channel, bool verbose, bool debug, bool raw, bool provide_checksum, bool request_checksum, unsigned int broadcast_group_mask) noexcept;
+		Util(GenericSocket &channel, const EspifConfig &config) noexcept;
 
 		static std::string dumper(const char *id, const std::string text);
 		static std::string sha1_hash_to_text(unsigned int length, const unsigned char *hash);
@@ -31,7 +33,6 @@ class Util
 	private:
 
 		GenericSocket &channel;
-		bool verbose, debug, raw, provide_checksum, request_checksum;
-		unsigned int broadcast_group_mask;
+		const EspifConfig config;
 };
 #endif

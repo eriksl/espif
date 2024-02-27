@@ -21,15 +21,42 @@ enum
 	sha1_hash_size = 20,
 };
 
-Espif::Espif(std::string host, std::string command_port, bool use_tcp, bool broadcast, bool multicast, bool raw_in,
-		bool no_provide_checksum_in, bool no_request_checksum_in,
-		bool dontwait_in, bool debug_in, bool verbose_in,
-		unsigned int broadcast_group_mask_in, unsigned int multicast_burst_in, unsigned int sector_size_in)
+Espif::Espif(std::string host, std::string command_port, bool use_tcp, bool broadcast, bool multicast, bool raw,
+		bool provide_checksum, bool request_checksum,
+		bool dontwait, bool debug, bool verbose,
+		unsigned int broadcast_group_mask, unsigned int multicast_burst, unsigned int sector_size)
 	:
-		raw(raw_in), provide_checksum(!no_provide_checksum_in), request_checksum(!no_request_checksum_in), dontwait(dontwait_in), debug(debug_in), verbose(verbose_in),
-		broadcast_group_mask(broadcast_group_mask_in), multicast_burst(multicast_burst_in), sector_size(sector_size_in),
-		channel(host, command_port, /* FIXME */ 4096, use_tcp, !!broadcast, !!multicast, verbose),
-		util(channel, verbose, debug, raw, !no_provide_checksum_in, !no_request_checksum_in, broadcast_group_mask)
+		config(
+		{
+			.host = host,
+			.command_port = command_port,
+			.use_tcp = use_tcp,
+			.broadcast = broadcast,
+			.multicast = multicast,
+			.debug = debug,
+			.verbose = verbose,
+			.dontwait = dontwait,
+			.broadcast_group_mask = broadcast_group_mask,
+			.multicast_burst = multicast_burst,
+			.raw = raw,
+			.provide_checksum = provide_checksum,
+			.request_checksum = request_checksum,
+			.sector_size = sector_size,
+		}),
+		channel(config),
+		util(channel, config)
+{
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
+	prn.seed(tv.tv_usec);
+
+}
+
+Espif::Espif(const EspifConfig &config_in)
+	:
+		config(config_in),
+		channel(config),
+		util(channel, config)
 {
 	struct timeval tv;
 	gettimeofday(&tv, nullptr);
@@ -61,8 +88,8 @@ void Espif::read(const std::string &filename, int sector, int sectors) const
 	{
 		gettimeofday(&time_start, 0);
 
-		if(debug)
-			std::cout << boost::format("start read from 0x%x (%u), length 0x%x (%u)") % (sector * sector_size) % sector % (sectors * sector_size) % sectors << std::endl;
+		if(config.debug)
+			std::cout << boost::format("start read from 0x%x (%u), length 0x%x (%u)") % (sector * config.sector_size) % sector % (sectors * config.sector_size) % sectors << std::endl;
 
 		hash_ctx = EVP_MD_CTX_new();
 		EVP_DigestInit_ex(hash_ctx, EVP_sha1(), (ENGINE *)0);
@@ -71,7 +98,7 @@ void Espif::read(const std::string &filename, int sector, int sectors) const
 
 		for(current = sector, offset = 0; current < (sector + sectors); current++)
 		{
-			retries += util.read_sector(sector_size, current, data);
+			retries += util.read_sector(config.sector_size, current, data);
 
 			if(::write(file_fd, data.data(), data.length()) <= 0)
 				throw(hard_exception("i/o error in write"));
@@ -91,7 +118,7 @@ void Espif::read(const std::string &filename, int sector, int sectors) const
 			rate = offset / 1024.0 / duration;
 
 			std::cout << boost::format("received %3d kbytes in %2.0f seconds at rate %3.0f kbytes/s, received %3u sectors, retries %2u, %3u%%    \r") %
-					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * sector_size));
+					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * config.sector_size));
 			std::cout.flush();
 		}
 	}
@@ -116,9 +143,9 @@ void Espif::read(const std::string &filename, int sector, int sectors) const
 
 	if(sha_local_hash_text != sha_remote_hash_text)
 	{
-		if(verbose)
+		if(config.verbose)
 			std::cout << boost::format("! sector %u / %u, address: 0x%x/0x%x read, checksum failed. Local hash: %s, remote hash: %s") %
-					sector % sectors % (sector * sector_size) % (sectors * sector_size) % sha_local_hash_text % sha_remote_hash_text << std::endl;
+					sector % sectors % (sector * config.sector_size) % (sectors * config.sector_size) % sha_local_hash_text % sha_remote_hash_text << std::endl;
 
 		throw(hard_exception("checksum read failed"));
 	}
@@ -142,7 +169,7 @@ void Espif::write(const std::string filename, int sector, bool simulate, bool ot
 	std::string sha_remote_hash_text;
 	std::string data;
 	unsigned int sectors_written, sectors_skipped, sectors_erased;
-	unsigned char sector_buffer[sector_size];
+	unsigned char sector_buffer[config.sector_size];
 	struct stat stat;
 
 	if(filename.empty())
@@ -152,7 +179,7 @@ void Espif::write(const std::string filename, int sector, bool simulate, bool ot
 		throw(hard_exception("file not found"));
 
 	fstat(file_fd, &stat);
-	length = (stat.st_size + (sector_size - 1)) / sector_size;
+	length = (stat.st_size + (config.sector_size - 1)) / config.sector_size;
 
 	sectors_skipped = 0;
 	sectors_erased = 0;
@@ -176,7 +203,7 @@ void Espif::write(const std::string filename, int sector, bool simulate, bool ot
 		}
 
 		std::cout << boost::format("start %s at address 0x%06x (sector %u), length: %u (%u sectors)") %
-				command % (sector * sector_size) % sector % (length * sector_size) % length << std::endl;
+				command % (sector * config.sector_size) % sector % (length * config.sector_size) % length << std::endl;
 
 		hash_ctx = EVP_MD_CTX_new();
 		EVP_DigestInit_ex(hash_ctx, EVP_sha1(), (ENGINE *)0);
@@ -185,17 +212,17 @@ void Espif::write(const std::string filename, int sector, bool simulate, bool ot
 
 		for(current = sector; current < (sector + length); current++)
 		{
-			memset(sector_buffer, 0xff, sector_size);
+			memset(sector_buffer, 0xff, config.sector_size);
 
-			if((::read(file_fd, sector_buffer, sector_size)) <= 0)
+			if((::read(file_fd, sector_buffer, config.sector_size)) <= 0)
 				throw(hard_exception("i/o error in read"));
 
-			EVP_DigestUpdate(hash_ctx, sector_buffer, sector_size);
+			EVP_DigestUpdate(hash_ctx, sector_buffer, config.sector_size);
 
 			retries += util.write_sector(current, std::string((const char *)sector_buffer, sizeof(sector_buffer)),
 					sectors_written, sectors_erased, sectors_skipped, simulate);
 
-			offset += sector_size;
+			offset += config.sector_size;
 
 			int seconds, useconds;
 			double duration, rate;
@@ -209,7 +236,7 @@ void Espif::write(const std::string filename, int sector, bool simulate, bool ot
 
 			std::cout << boost::format("sent %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %3u sectors, written %3u sectors, erased %3u sectors, skipped %3u sectors, retries %2u, %3u%%     \r") %
 					(offset / 1024) % duration % rate % (current - sector + 1) % sectors_written % sectors_erased % sectors_skipped % retries %
-					(((offset + sector_size) * 100) / (length * sector_size));
+					(((offset + config.sector_size) * 100) / (length * config.sector_size));
 			std::cout.flush();
 		}
 	}
@@ -258,7 +285,7 @@ void Espif::verify(const std::string &filename, int sector) const
 	std::vector<std::string> string_value;
 	std::string local_data, remote_data;
 	struct stat stat;
-	uint8_t sector_buffer[sector_size];
+	uint8_t sector_buffer[config.sector_size];
 	int retries;
 
 	if(filename.empty())
@@ -268,28 +295,28 @@ void Espif::verify(const std::string &filename, int sector) const
 		throw(hard_exception("can't open file"));
 
 	fstat(file_fd, &stat);
-	sectors = (stat.st_size + (sector_size - 1)) / sector_size;
+	sectors = (stat.st_size + (config.sector_size - 1)) / config.sector_size;
 	offset = 0;
 
 	try
 	{
 		gettimeofday(&time_start, 0);
 
-		if(debug)
-			std::cout << boost::format("start verify from 0x%x (%u), length 0x%x (%u)") % (sector * sector_size) % sector % (sectors * sector_size) % sectors << std::endl;
+		if(config.debug)
+			std::cout << boost::format("start verify from 0x%x (%u), length 0x%x (%u)") % (sector * config.sector_size) % sector % (sectors * config.sector_size) % sectors << std::endl;
 
 		retries = 0;
 
 		for(current = sector; current < (sector + sectors); current++)
 		{
-			memset(sector_buffer, 0xff, sector_size);
+			memset(sector_buffer, 0xff, config.sector_size);
 
 			if(::read(file_fd, sector_buffer, sizeof(sector_buffer)) <= 0)
 				throw(hard_exception("i/o error in read"));
 
 			local_data.assign((const char *)sector_buffer, sizeof(sector_buffer));
 
-			retries += util.read_sector(sector_size, current, remote_data);
+			retries += util.read_sector(config.sector_size, current, remote_data);
 
 			if(local_data != remote_data)
 				throw(hard_exception(boost::format("data mismatch, sector %u") % current));
@@ -307,7 +334,7 @@ void Espif::verify(const std::string &filename, int sector) const
 			rate = offset / 1024.0 / duration;
 
 			std::cout << boost::format("received %3u kbytes in %2.0f seconds at rate %3.0f kbytes/s, received %3u sectors, retries %2u, %3u%%     \r") %
-					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * sector_size));
+					(offset / 1024) % duration % rate % (current - sector) % retries % ((offset * 100) / (sectors * config.sector_size));
 			std::cout.flush();
 		}
 	}
@@ -327,7 +354,7 @@ void Espif::benchmark(int length) const
 {
 	unsigned int phase, retries, iterations, current;
 	std::string command;
-	std::string data(sector_size, '\0');
+	std::string data(config.sector_size, '\0');
 	std::string expect;
 	std::string reply;
 	struct timeval time_start, time_now;
@@ -365,7 +392,7 @@ void Espif::benchmark(int length) const
 			rate = current * 4.0 / duration;
 
 			std::cout << boost::format("%s %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %04u sectors, retries %2u, %3u%%     \r") %
-					((phase == 0) ? "sent     " : "received ") % (current * sector_size / 1024) % duration % rate % (current + 1) % retries % (((current + 1) * 100) / iterations);
+					((phase == 0) ? "sent     " : "received ") % (current * config.sector_size / 1024) % duration % rate % (current + 1) % retries % (((current + 1) * 100) / iterations);
 			std::cout.flush();
 		}
 
@@ -433,10 +460,10 @@ void Espif::image(int image_slot, const std::string &filename,
 	gettimeofday(&time_start, 0);
 
 	if(image_slot == 0)
-		current_sector = 0x200000 / sector_size;
+		current_sector = 0x200000 / config.sector_size;
 	else
 		if(image_slot == 1)
-			current_sector = 0x280000 / sector_size;
+			current_sector = 0x280000 / config.sector_size;
 		else
 			current_sector = -1;
 
@@ -450,7 +477,7 @@ void Espif::image(int image_slot, const std::string &filename,
 		const Magick::Quantum *pixel_cache;
 
 		std::string reply;
-		unsigned char sector_buffer[sector_size];
+		unsigned char sector_buffer[config.sector_size];
 		unsigned int start_x, start_y;
 		unsigned int current_buffer, x, y;
 		double r, g, b;
@@ -466,7 +493,7 @@ void Espif::image(int image_slot, const std::string &filename,
 
 		image.type(MagickCore::TrueColorType);
 
-		if(debug)
+		if(config.debug)
 			std::cout << boost::format("image loaded from %s, %ux%u, version %s") % filename % image.columns() % image.rows() % image.magick() << std::endl;
 
 		image.filterType(Magick::TriangleFilter);
@@ -487,7 +514,7 @@ void Espif::image(int image_slot, const std::string &filename,
 		start_x = 0;
 		start_y = 0;
 
-		memset(sector_buffer, 0xff, sector_size);
+		memset(sector_buffer, 0xff, config.sector_size);
 
 		for(y = 0; y < dim_y; y++)
 		{
@@ -501,10 +528,10 @@ void Espif::image(int image_slot, const std::string &filename,
 				{
 					case(1):
 					{
-						if((current_buffer / 8) + 1 > sector_size)
+						if((current_buffer / 8) + 1 > config.sector_size)
 						{
 							image_send_sector(current_sector, std::string((const char *)sector_buffer, current_buffer / 8), start_x, start_y, depth);
-							memset(sector_buffer, 0xff, sector_size);
+							memset(sector_buffer, 0xff, config.sector_size);
 							current_buffer -= (current_buffer / 8) * 8;
 						}
 
@@ -523,10 +550,10 @@ void Espif::image(int image_slot, const std::string &filename,
 						unsigned int ru16, gu16, bu16;
 						unsigned int r1, g1, g2, b1;
 
-						if((current_buffer + 2) > sector_size)
+						if((current_buffer + 2) > config.sector_size)
 						{
 							image_send_sector(current_sector, std::string((const char *)sector_buffer, current_buffer), start_x, start_y, depth);
-							memset(sector_buffer, 0xff, sector_size);
+							memset(sector_buffer, 0xff, config.sector_size);
 
 							if(current_sector >= 0)
 								current_sector++;
@@ -553,10 +580,10 @@ void Espif::image(int image_slot, const std::string &filename,
 
 					case(24):
 					{
-						if((current_buffer + 3) > sector_size)
+						if((current_buffer + 3) > config.sector_size)
 						{
 							image_send_sector(current_sector, std::string((const char *)sector_buffer, current_buffer), start_x, start_y, depth);
-							memset(sector_buffer, 0xff, sector_size);
+							memset(sector_buffer, 0xff, config.sector_size);
 
 							if(current_sector >= 0)
 								current_sector++;
@@ -702,7 +729,7 @@ void Espif::image_epaper(const std::string &filename) const
 
 		image.read(filename);
 
-		if(debug)
+		if(config.debug)
 			std::cout << boost::format("image loaded from %s, %ux%u, version: %s") % filename % image.columns() % image.rows() % image.magick() << std::endl;
 
 		image.resize(newsize);
@@ -800,7 +827,7 @@ void Espif::image_epaper(const std::string &filename) const
 		std::cout << boost::format("image epaper: %s") % e.what() << std::endl;
 	}
 
-	if(debug)
+	if(config.debug)
 	{
 		for(y = 0; y < 104; y++)
 		{
@@ -833,7 +860,7 @@ std::string Espif::send(std::string args) const
 	std::string output;
 	int retries;
 
-	if(dontwait)
+	if(config.dontwait)
 	{
 		if(daemon(0, 0))
 		{
@@ -877,7 +904,7 @@ std::string Espif::send(std::string args) const
 
 		output.append("\n");
 
-		if((retries > 0) && verbose)
+		if((retries > 0) && config.verbose)
 			std::cout << boost::format("%u retries\n") % retries;
 	}
 
@@ -912,11 +939,11 @@ std::string Espif::multicast(const std::string &args)
 	std::string output;
 
 	transaction_id = prn();
-	packet = send_packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask, &transaction_id);
+	packet = send_packet.encapsulate(config.raw, config.provide_checksum, config.request_checksum, config.broadcast_group_mask, &transaction_id);
 
-	if(dontwait)
+	if(config.dontwait)
 	{
-		for(run = 0; run < (int)multicast_burst; run++)
+		for(run = 0; run < (int)config.multicast_burst; run++)
 		{
 			send_data = packet;
 			channel.send(send_data);
@@ -931,7 +958,7 @@ std::string Espif::multicast(const std::string &args)
 	gettimeofday(&tv_start, nullptr);
 	start = (tv_start.tv_sec * 1000000) + tv_start.tv_usec;
 
-	for(run = 0; run < (int)multicast_burst; run++)
+	for(run = 0; run < (int)config.multicast_burst; run++)
 	{
 		gettimeofday(&tv_now, nullptr);
 		now = (tv_now.tv_sec * 1000000) + tv_now.tv_usec;
@@ -952,9 +979,9 @@ std::string Espif::multicast(const std::string &args)
 			receive_packet.clear();
 			receive_packet.append_data(reply_data);
 
-			if(!receive_packet.decapsulate(&reply_data, nullptr, verbose, nullptr, &transaction_id))
+			if(!receive_packet.decapsulate(&reply_data, nullptr, config.verbose, nullptr, &transaction_id))
 			{
-				if(verbose)
+				if(config.verbose)
 					std::cout << "multicast: cannot decapsulate" << std::endl;
 
 				continue;
@@ -967,7 +994,7 @@ std::string Espif::multicast(const std::string &args)
 
 			if(gai_error != 0)
 			{
-				if(verbose)
+				if(config.verbose)
 					std::cout << boost::format("cannot resolve: %s") % gai_strerror(gai_error) << std::endl;
 
 				hostname = "0.0.0.0";
@@ -1006,7 +1033,7 @@ std::string Espif::multicast(const std::string &args)
 		output.append((boost::format("%-14s %2u %-12s %s\n") % ip % it.second.count % it.second.hostname % it.second.text).str());
 	}
 
-	output.append((boost::format("\n%u probes sent, %u replies received, %u hosts\n") % multicast_burst % total_replies % total_hosts).str());
+	output.append((boost::format("\n%u probes sent, %u replies received, %u hosts\n") % config.multicast_burst % total_replies % total_hosts).str());
 
 	return(output);
 }
@@ -1042,7 +1069,7 @@ void Espif::commit_ota(unsigned int flash_slot, unsigned int sector, bool reset,
 
 	packet.clear();
 	packet.append_data("reset\n");
-	send_data = packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask);
+	send_data = packet.encapsulate(config.raw, config.provide_checksum, config.request_checksum, config.broadcast_group_mask);
 	channel.send(send_data);
 	channel.disconnect();
 	channel.connect();

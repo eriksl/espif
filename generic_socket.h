@@ -1,5 +1,8 @@
 #ifndef _generic_socket_h_
 #define _generic_socket_h_
+
+#include "espifconfig.h"
+
 #include <netinet/in.h>
 #include <string>
 
@@ -10,7 +13,7 @@ class GenericSocket
 
 	protected:
 
-		GenericSocket(const std::string &host, const std::string &port, unsigned int buffer_size, bool tcp, bool broadcast, bool multicast, bool verbose);
+		GenericSocket(const EspifConfig &);
 		~GenericSocket() noexcept;
 
 		bool send(std::string &data, int timeout = 500) const;
@@ -22,11 +25,8 @@ class GenericSocket
 	private:
 
 		int socket_fd;
-		std::string host;
-		const std::string service;
 		struct sockaddr_in saddr;
-		const unsigned int buffer_size;
-		bool tcp;
-		const bool broadcast, multicast, verbose;
+
+		const EspifConfig config;
 };
 #endif

@@ -1,8 +1,10 @@
 #ifndef _espif_h_
 #define _espif_h_
 
+#include "espifconfig.h"
 #include "generic_socket.h"
 #include "util.h"
+
 #include <string>
 
 #include <boost/random/mersenne_twister.hpp>
@@ -18,6 +20,8 @@ class Espif
 				bool no_provide_checksum = false, bool no_request_checksum = false,
 				bool dontwait = false, bool debug = false, bool verbose = false,
 				unsigned int broadcast_group_mask = 0, unsigned int multicast_burst = 3, unsigned int sector_size = 4096 /* FIXME */);
+
+		Espif(const EspifConfig &);
 
 		void read(const std::string &filename, int sector, int sectors) const;
 		void write(const std::string filename, int sector, bool simulate, bool otawrite) const;
@@ -35,9 +39,7 @@ class Espif
 
 	private:
 
-		const bool raw, provide_checksum, request_checksum;
-		const bool dontwait, debug, verbose;
-		const unsigned int broadcast_group_mask, multicast_burst, sector_size;
+		const EspifConfig config;
 		GenericSocket channel;
 		const Util util;
 		boost::random::mt19937 prn;

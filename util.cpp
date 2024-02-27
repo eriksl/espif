@@ -7,13 +7,10 @@
 #include <boost/format.hpp>
 #include <boost/regex.hpp>
 
-Util::Util(GenericSocket &channel_in,
-		bool verbose_in, bool debug_in, bool raw_in, bool provide_checksum_in, bool request_checksum_in, unsigned int broadcast_group_mask_in) noexcept
+Util::Util(GenericSocket &channel_in, const EspifConfig &config_in) noexcept
 	:
 		channel(channel_in),
-		verbose(verbose_in), debug(debug_in), raw(raw_in),
-		provide_checksum(provide_checksum_in), request_checksum(request_checksum_in),
-		broadcast_group_mask(broadcast_group_mask_in)
+		config(config_in)
 {
 }
 
@@ -66,10 +63,10 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 	unsigned int captures;
 	int timeout;
 
-	if(debug)
+	if(config.debug)
 		std::cout << std::endl << Util::dumper("data", data) << std::endl;
 
-	packet = send_packet.encapsulate(raw, provide_checksum, request_checksum, broadcast_group_mask);
+	packet = send_packet.encapsulate(config.raw, config.provide_checksum, config.request_checksum, config.broadcast_group_mask);
 
 	timeout = 100;
 
@@ -95,7 +92,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 				receive_packet.append_data(receive_data);
 			}
 
-			if(!receive_packet.decapsulate(&reply_data, reply_oob_data, verbose))
+			if(!receive_packet.decapsulate(&reply_data, reply_oob_data, config.verbose))
 				throw(transient_exception("decapsulation failed"));
 
 			if(match && !boost::regex_match(reply_data, capture, re))
@@ -105,7 +102,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		}
 		catch(const transient_exception &e)
 		{
-			if(verbose)
+			if(config.verbose)
 				std::cout << boost::format("process attempt #%u failed: %s, backoff %u ms") % attempt % e.what() % timeout << std::endl;
 
 			channel.drain(timeout);
@@ -115,7 +112,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		}
 	}
 
-	if(verbose && (attempt > 0))
+	if(config.verbose && (attempt > 0))
 		std::cerr << boost::format("success at attempt %u") % attempt << std::endl;
 
 	if(attempt >= max_attempts)
@@ -157,7 +154,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		}
 	}
 
-	if(debug)
+	if(config.debug)
 		std::cout << std::endl << Util::dumper("reply", reply_data) << std::endl;
 
 	return(attempt);
@@ -186,7 +183,7 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 
 	if(data.length() < sector_size)
 	{
-		if(verbose)
+		if(config.verbose)
 			std::cout << boost::format("flash sector read failed: incorrect length, expected: %u, received: %u, reply: %s") %
 					sector_size % data.length() % reply << std::endl;
 
@@ -195,7 +192,7 @@ int Util::read_sector(unsigned int sector_size, unsigned int sector, std::string
 
 	if(int_value[0] != (int)sector)
 	{
-		if(verbose)
+		if(config.verbose)
 			std::cout << boost::format("flash sector read failed: local sector #%u != remote sector #%u") % sector % int_value[0] << std::endl;
 
 		throw(transient_exception(boost::format("read sector failed: incorrect sector (%u vs. %u)") % sector % int_value[0]));
@@ -270,7 +267,7 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 
 		fmt % e.what() % reply;
 
-		if(verbose)
+		if(config.verbose)
 			std::cout << fmt << std::endl;
 
 		throw(transient_exception(fmt));
@@ -281,7 +278,7 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 
 		fmt % e.what() % reply;
 
-		if(verbose)
+		if(config.verbose)
 			std::cout << fmt << std::endl;
 
 		throw(hard_exception(fmt));
@@ -293,7 +290,7 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 
 		fmt % sectors % int_value[0];
 
-		if(verbose)
+		if(config.verbose)
 			std::cout << fmt << std::endl;
 
 		throw(transient_exception(fmt));
@@ -305,7 +302,7 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 
 		fmt % sector % int_value[1];
 
-		if(verbose)
+		if(config.verbose)
 			std::cout << fmt << std::endl;
 
 		throw(transient_exception(fmt));
