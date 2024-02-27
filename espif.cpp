@@ -21,37 +21,6 @@ enum
 	sha1_hash_size = 20,
 };
 
-Espif::Espif(std::string host, std::string command_port, bool use_tcp, bool broadcast, bool multicast, bool raw,
-		bool provide_checksum, bool request_checksum,
-		bool dontwait, bool debug, bool verbose,
-		unsigned int broadcast_group_mask, unsigned int multicast_burst, unsigned int sector_size)
-	:
-		config(
-		{
-			.host = host,
-			.command_port = command_port,
-			.use_tcp = use_tcp,
-			.broadcast = broadcast,
-			.multicast = multicast,
-			.debug = debug,
-			.verbose = verbose,
-			.dontwait = dontwait,
-			.broadcast_group_mask = broadcast_group_mask,
-			.multicast_burst = multicast_burst,
-			.raw = raw,
-			.provide_checksum = provide_checksum,
-			.request_checksum = request_checksum,
-			.sector_size = sector_size,
-		}),
-		channel(config),
-		util(channel, config)
-{
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	prn.seed(tv.tv_usec);
-
-}
-
 Espif::Espif(const EspifConfig &config_in)
 	:
 		config(config_in),

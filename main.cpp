@@ -141,10 +141,24 @@ int main(int argc, const char **argv)
 		if(selected > 1)
 			throw(hard_exception("specify one of write/simulate/verify/image/epaper-image/read/info"));
 
-		Espif espif(host, command_port,
-					option_verbose, option_debug, cmd_broadcast, cmd_multicast, option_use_tcp, option_raw,
-					option_no_provide_checksum, option_no_request_checksum, option_dontwait,
-					option_broadcast_group_mask, option_multicast_burst);
+		Espif espif(
+			EspifConfig
+			{
+				.host = host,
+				.command_port = command_port,
+				.use_tcp = option_use_tcp,
+				.broadcast = cmd_broadcast,
+				.multicast = cmd_multicast,
+				.debug = option_debug,
+				.verbose = option_verbose,
+				.dontwait = option_dontwait,
+				.broadcast_group_mask = option_broadcast_group_mask,
+				.multicast_burst = option_multicast_burst,
+				.raw = option_raw,
+				.provide_checksum = !option_no_provide_checksum,
+				.request_checksum = !option_no_request_checksum
+			}
+		);
 
 		if(selected == 0)
 			std::cout << espif.send(args);

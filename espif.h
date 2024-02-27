@@ -15,12 +15,6 @@ class Espif
 	public:
 
 		Espif() = delete;
-		Espif(std::string host, std::string command_port = "24", bool use_tcp = false,
-				bool broadcast = false, bool multicast = false, bool raw = false,
-				bool no_provide_checksum = false, bool no_request_checksum = false,
-				bool dontwait = false, bool debug = false, bool verbose = false,
-				unsigned int broadcast_group_mask = 0, unsigned int multicast_burst = 3, unsigned int sector_size = 4096 /* FIXME */);
-
 		Espif(const EspifConfig &);
 
 		void read(const std::string &filename, int sector, int sectors) const;

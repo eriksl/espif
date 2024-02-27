@@ -1,9 +1,12 @@
 %module "Esp::IF"
-%include "std_string.i"
+
+%include <std_string.i>
+%include <exception.i>
 
 %{
 #include <iostream>
 #include "espif.h"
+#include "espifconfig.h"
 #include "exception.h"
 %}
 
@@ -52,3 +55,4 @@
 }
 
 %include "espif.h"
+%include "espifconfig.h"
