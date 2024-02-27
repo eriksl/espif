@@ -45,21 +45,24 @@ if(!defined($option_host))
 
 try
 {
-	my($espifconfig) = new Esp::IF::EspifConfig;
-
-	$$espifconfig{"host"} = $option_host;
-	$$espifconfig{"command_port"} = $option_port;
-	$$espifconfig{"use_tcp"} = $option_use_tcp;
-	$$espifconfig{"broadcast"} = $option_broadcast;
-	$$espifconfig{"multicast"} = $option_multicast;
-	$$espifconfig{"raw"} = $option_raw;
-	$$espifconfig{"debug"} = $option_debug;
-	$$espifconfig{"verbose"} = $option_verbose;
-	$$espifconfig{"provide_checksum"} = !$option_no_provide_checksum;
-	$$espifconfig{"request_checksum"} = !$option_no_request_checksum;
-	$$espifconfig{"dontwait"} = $option_dontwait;
-	$$espifconfig{"broadcast_group_mask"} = $option_broadcast_group_mask;
-	$$espifconfig{"multicast_burst"} = $option_multicast_burst;
+	my($espifconfig) = Esp::IF::new_EspifConfig
+	(
+		{
+			"host" => $option_host,
+			"command_port" => $option_port,
+			"use_tcp" => $option_use_tcp,
+			"broadcast" => $option_broadcast,
+			"multicast" => $option_multicast,
+			"raw" => $option_raw,
+			"debug" => $option_debug,
+			"verbose" => $option_verbose,
+			"provide_checksum" => !$option_no_provide_checksum,
+			"request_checksum" => !$option_no_request_checksum,
+			"dontwait" => $option_dontwait,
+			"broadcast_group_mask" => $option_broadcast_group_mask,
+			"multicast_burst" => $option_multicast_burst,
+		}
+	);
 
 	my($espif) = new Esp::IF::Espif($espifconfig);
 

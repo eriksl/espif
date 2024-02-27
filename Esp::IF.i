@@ -56,3 +56,21 @@
 
 %include "espif.h"
 %include "espifconfig.h"
+
+%perlcode %{
+	sub new_EspifConfig($)
+	{
+		my($config) = @_;
+		my($key, $value, $espifconfig);
+
+		$espifconfig = new Esp::IF::EspifConfig;
+
+		foreach $key (keys(%$config))
+		{
+			$value = $$config{$key};
+			$espifconfig->{$key} = $value;
+		}
+
+		return($espifconfig);
+	}
+%}
