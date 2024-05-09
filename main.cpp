@@ -106,6 +106,9 @@ int main(int argc, const char **argv)
 			args.append(*it);
 		}
 
+		if(option_broadcast_group_mask)
+			cmd_broadcast = true;
+
 		selected = 0;
 
 		if(cmd_read)
