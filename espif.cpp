@@ -353,16 +353,19 @@ void Espif::benchmark(int length) const
 						&data,
 						(boost::format("OK flash-bench: sending %u bytes") % length).str().c_str());
 
-			gettimeofday(&time_now, 0);
+			if(!config.debug)
+			{
+				gettimeofday(&time_now, 0);
 
-			seconds = time_now.tv_sec - time_start.tv_sec;
-			useconds = time_now.tv_usec - time_start.tv_usec;
-			duration = seconds + (useconds / 1000000.0);
-			rate = current * 4.0 / duration;
+				seconds = time_now.tv_sec - time_start.tv_sec;
+				useconds = time_now.tv_usec - time_start.tv_usec;
+				duration = seconds + (useconds / 1000000.0);
+				rate = current * 4.0 / duration;
 
-			std::cout << boost::format("%s %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %04u sectors, retries %2u, %3u%%     \r") %
-					((phase == 0) ? "sent     " : "received ") % (current * config.sector_size / 1024) % duration % rate % (current + 1) % retries % (((current + 1) * 100) / iterations);
-			std::cout.flush();
+				std::cout << boost::format("%s %4u kbytes in %2.0f seconds at rate %3.0f kbytes/s, sent %04u sectors, retries %2u, %3u%%     \r") %
+						((phase == 0) ? "sent     " : "received ") % (current * config.sector_size / 1024) % duration % rate % (current + 1) % retries % (((current + 1) * 100) / iterations);
+				std::cout.flush();
+			}
 		}
 
 		usleep(200000);
