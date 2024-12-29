@@ -664,6 +664,7 @@ void Espif::ProxyThread::operator()()
 							"			<arg name=\"info\" type=\"s\" direction=\"out\"/>\n" +
 							"		</method>\n" +
 							"		<method name=\"get_sensor_data\">\n" +
+							"			<arg name=\"module\" type=\"u\" direction=\"in\"/>\n" +
 							"			<arg name=\"bus\" type=\"u\" direction=\"in\"/>\n" +
 							"			<arg name=\"name\" type=\"s\" direction=\"in\"/>\n" +
 							"			<arg name=\"type\" type=\"s\" direction=\"in\"/>\n" +
@@ -700,7 +701,9 @@ void Espif::ProxyThread::operator()()
 							{
 								Util::time_to_string(time_string, it.second.time);
 
-								reply += (boost::format("> %1u %-16s %-16s / %2u @ %02x %8.2f %-3s %s\n") % it.first.bus % it.first.name % it.first.type % it.second.id % it.second.address % it.second.value % it.second.unity % time_string).str();
+								reply += (boost::format("> %1u %1u %-16s %-16s / %2u @ %02x %8.2f %-3s %s\n") %
+											it.first.module % it.first.bus % it.first.name % it.first.type %
+											it.second.id % it.second.address % it.second.value % it.second.unity % time_string).str();
 							}
 						}
 
@@ -723,21 +726,23 @@ void Espif::ProxyThread::operator()()
 					{
 						if(method == "get_sensor_data")
 						{
+							unsigned int module;
 							unsigned int bus;
 							std::string name;
 							std::string type;
 							ProxySensorDataKey key;
 							ProxySensorData::const_iterator it;
 
-							if(!dbus_glue.receive_uint32_string_string(bus, name, type, &error))
+							if(!dbus_glue.receive_uint32_uint32_string_string(module, bus, name, type, &error))
 								throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
 
+							key.module = module;
 							key.bus = bus;
 							key.name = name;
 							key.type = type;
 
 							if((it = espif.proxy_sensor_data.find(key)) == espif.proxy_sensor_data.end())
-								throw(transient_exception(dbus_glue.inform_error(std::string("not found"))));
+								throw(transient_exception(dbus_glue.inform_error((boost::format("not found: %u/%u/%s/%s") % key.module % key.bus % key.name % key.type).str())));
 
 							if(!dbus_glue.send_uint64_uint32_uint32_string_double(it->second.time, it->second.id, it->second.address, it->second.unity, it->second.value))
 								throw(transient_exception(dbus_glue.inform_error(std::string("reply error"))));
@@ -839,6 +844,7 @@ void Espif::proxy()
 			try
 			{
 				data.time = time((time_t *)0);
+				key.module = 0;
 				key.bus = (unsigned int)stoi(capture[1]);
 				data.id = (unsigned int)stoi(capture[2]);
 				data.address = (unsigned int)stoi(capture[3], nullptr, 16);

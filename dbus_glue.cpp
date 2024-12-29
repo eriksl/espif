@@ -67,12 +67,12 @@ bool dBusGlue::receive_string(std::string &p1, std::string *error_message)
 	return(true);
 }
 
-bool dBusGlue::receive_uint32_string_string(uint32_t &p1, std::string &p2, std::string &p3, std::string *error_message)
+bool dBusGlue::receive_uint32_uint32_string_string(uint32_t &p1, uint32_t &p2, std::string &p3, std::string &p4, std::string *error_message)
 {
-	dbus_uint32_t s1;
-	const char *s2, *s3;
+	dbus_uint32_t s1, s2;
+	const char *s3, *s4;
 
-	dbus_message_get_args(incoming_message, &dbus_error, DBUS_TYPE_UINT32, &s1, DBUS_TYPE_STRING, &s2, DBUS_TYPE_STRING, &s3, DBUS_TYPE_INVALID);
+	dbus_message_get_args(incoming_message, &dbus_error, DBUS_TYPE_UINT32, &s1, DBUS_TYPE_UINT32, &s2, DBUS_TYPE_STRING, &s3, DBUS_TYPE_STRING, &s4, DBUS_TYPE_INVALID);
 
 	if(dbus_error_is_set(&dbus_error))
 	{
@@ -84,6 +84,7 @@ bool dBusGlue::receive_uint32_string_string(uint32_t &p1, std::string &p2, std::
 	p1 = s1;
 	p2 = s2;
 	p3 = s3;
+	p4 = s4;
 
 	*error_message = "";
 	return(true);

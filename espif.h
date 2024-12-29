@@ -40,13 +40,14 @@ class Espif
 		{
 			public:
 
+				unsigned int module;
 				unsigned int bus;
 				std::string name;
 				std::string type;
 
 				int operator <(const ProxySensorDataKey &key) const
 				{
-					return(std::tie(this->bus, this->name, this->type) < std::tie(key.bus, key.name, key.type));
+					return(std::tie(this->module, this->bus, this->name, this->type) < std::tie(key.module, key.bus, key.name, key.type));
 				}
 		};
 
