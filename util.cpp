@@ -116,7 +116,7 @@ int Util::process(const std::string &data, const std::string &oob_data, std::str
 		std::cerr << boost::format("success at attempt %u") % attempt << std::endl;
 
 	if(attempt >= max_attempts)
-		throw(hard_exception("process: no more attempts"));
+		throw(transient_exception("process: no more attempts"));
 
 	if(string_value || int_value)
 	{
@@ -309,4 +309,15 @@ void Util::get_checksum(unsigned int sector, unsigned int sectors, std::string &
 	}
 
 	checksum = string_value[2];
+}
+
+void Util::time_to_string(std::string &dst, const time_t &ticks)
+{
+    struct tm tm;
+    char timestring[64];
+
+    localtime_r(&ticks, &tm);
+    strftime(timestring, sizeof(timestring), "%Y/%m/%d %H:%M:%S", &tm);
+
+	dst = timestring;
 }

@@ -20,6 +20,7 @@ class Util
 
 		static std::string dumper(const char *id, const std::string text);
 		static std::string sha1_hash_to_text(unsigned int length, const unsigned char *hash);
+		static void time_to_string(std::string &dst, const time_t &ticks);
 
 		int process(const std::string &data, const std::string &oob_data,
 				std::string &reply_data, std::string *reply_oob_data,
@@ -29,6 +30,7 @@ class Util
 				unsigned int &written, unsigned int &erased, unsigned int &skipped, bool simulate) const;
 		void get_checksum(unsigned int sector, unsigned int sectors,
 				std::string &checksum) const;
+
 
 	private:
 

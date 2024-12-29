@@ -1,6 +1,7 @@
 #include "espif.h"
 #include "packet.h"
 #include "exception.h"
+#include "dbus_glue.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,6 +12,9 @@
 #include <string>
 #include <iostream>
 #include <boost/format.hpp>
+#include <boost/thread.hpp>
+#include <boost/chrono.hpp>
+#include <boost/regex.hpp>
 #include <openssl/evp.h>
 #include <Magick++.h>
 
@@ -23,6 +27,7 @@ enum
 
 Espif::Espif(const EspifConfig &config_in)
 	:
+		proxy_thread_class(*this),
 		config(config_in),
 		channel(config),
 		util(channel, config)
@@ -616,6 +621,239 @@ void Espif::image(int image_slot, const std::string &filename,
 	catch(const Magick::Warning &warning)
 	{
 		std::cout << boost::format("image: %s") % warning.what() << std::endl;
+	}
+}
+
+Espif::ProxyThread::ProxyThread(Espif &espif_in) : espif(espif_in)
+{
+}
+
+void Espif::ProxyThread::operator()()
+{
+	int type;
+	std::string interface;
+	std::string method;
+	std::string error;
+	std::string reply;
+	std::string time_string;
+	dBusGlue dbus_glue(std::string("name.slagter.erik.espproxy.") + espif.config.host);
+
+	for(;;)
+	{
+		try
+		{
+			if(!dbus_glue.get_message(&type, &interface, &method))
+				throw(transient_exception("get message failed"));
+
+			if(type != DBUS_MESSAGE_TYPE_METHOD_CALL)
+				throw(transient_exception(boost::format("message of non method call type: %u") % type));
+
+			//std::cerr << "interface: " << interface << std::endl;
+			//std::cerr << "method: " << method << std::endl;
+
+			if(interface != "name.slagter.erik.espproxy")
+				throw(transient_exception(dbus_glue.inform_error((boost::format("message not for our interface: %s") % interface).str())));
+
+			if(method == "dump")
+			{
+				if(espif.proxy_sensor_data.size() > 0)
+				{
+					reply = "SENSOR DATA\n\n";
+
+					for(const auto &it : espif.proxy_sensor_data)
+					{
+						Util::time_to_string(time_string, it.second.time);
+
+						reply += (boost::format("> %1u %-16s %-16s / %2u @ %02x %8.2f %-3s %s\n") % it.first.bus % it.first.name % it.first.type % it.second.id % it.second.address % it.second.value % it.second.unity % time_string).str();
+					}
+				}
+
+				if(espif.proxy_commands.size() > 0)
+				{
+					reply += "\nCOMMANDS\n\n";
+
+					for(const auto &it : espif.proxy_commands)
+					{
+						Util::time_to_string(time_string, it.time);
+
+						reply += (boost::format("> %s %s\n") % it.command % time_string).str();
+					}
+				}
+
+				if(!dbus_glue.send_string(reply))
+					throw(transient_exception(dbus_glue.inform_error(std::string("send reply error"))));
+			}
+			else
+			{
+				if(method == "get_sensor_data")
+				{
+					unsigned int bus;
+					std::string name;
+					std::string type;
+					ProxySensorDataKey key;
+					ProxySensorData::const_iterator it;
+
+					if(!dbus_glue.receive_uint32_string_string(bus, name, type, &error))
+						throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
+
+					key.bus = bus;
+					key.name = name;
+					key.type = type;
+
+					if((it = espif.proxy_sensor_data.find(key)) == espif.proxy_sensor_data.end())
+						throw(transient_exception(dbus_glue.inform_error(std::string("not found"))));
+
+					if(!dbus_glue.send_uint64_uint32_uint32_string_double(it->second.time, it->second.id, it->second.address, it->second.unity, it->second.value))
+						throw(transient_exception(dbus_glue.inform_error(std::string("reply error"))));
+				}
+				else
+				{
+					if(method == "push_command")
+					{
+						std::string command;
+						ProxyCommandEntry entry;
+
+						if(!dbus_glue.receive_string(command, &error))
+							throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
+
+						entry.time = time((time_t *)0);
+						entry.command = command;
+
+						espif.proxy_commands.push_back(entry);
+
+						if(!dbus_glue.send_string("ok"))
+							throw(transient_exception(dbus_glue.inform_error(std::string("reply error"))));
+					}
+					else
+						throw(transient_exception(dbus_glue.inform_error(std::string("unknown method called"))));
+				}
+			}
+		}
+		catch(const transient_exception &e)
+		{
+			std::cerr << boost::format("warning: %s\n") % e.what();
+		}
+
+		dbus_glue.reset();
+	}
+}
+
+void Espif::proxy()
+{
+	std::string command, reply, line, time_string;
+	unsigned int pos;
+	ProxySensorDataKey key;
+	ProxySensorDataEntry data;
+	boost::smatch capture;
+	boost::regex re("sensor ([0-9]+)/([0-9]+)@([0-9a-fA-F]+): +([^,]+), +([^:]+): +[[]([0-9.U-]+)[]] +([a-zA-Z%]+)");
+	boost::thread proxy_thread(proxy_thread_class);
+	struct ProxyCommandEntry entry;
+
+	proxy_thread.detach();
+
+	for(;;)
+	{
+		command = "isd";
+
+		if(!channel.send(command, 10000))
+		{
+			boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(1));
+			std::cerr << "sensor data send timeout\n";
+			continue;
+		}
+
+		reply.clear();
+
+		if(!channel.receive(reply, 10000))
+		{
+			boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(1));
+			std::cerr << "sensor receive timeout";
+			continue;
+		}
+
+		while(reply.length() > 0)
+		{
+			if((pos = reply.find('\n')) == std::string::npos)
+			{
+				line = reply;
+				reply.clear();
+			}
+			else
+			{
+				line = reply.substr(0, pos);
+				reply.erase(0, pos + 1);
+			}
+
+			if(!boost::regex_match(line, capture, re))
+			{
+				//std::cerr << "sensor data: no match: " << line << "\n";
+				continue;
+			}
+
+			if(capture.size() < 8)
+			{
+				std::cerr << "partial match\n";
+				continue;
+			}
+
+			try
+			{
+				data.time = time((time_t *)0);
+				key.bus = (unsigned int)stoi(capture[1]);
+				data.id = (unsigned int)stoi(capture[2]);
+				data.address = (unsigned int)stoi(capture[3], nullptr, 16);
+				key.name = capture[4];
+				key.type = capture[5];
+				data.value = stod(capture[6]);
+				data.unity = capture[7];
+			}
+			catch(std::invalid_argument &)
+			{
+				std::cerr << "error in integer conversion\n";
+				continue;
+			}
+			catch(std::out_of_range &)
+			{
+				std::cerr << "error in integer conversion\n";
+				continue;
+			}
+
+			proxy_sensor_data[key] = data;
+		}
+
+		if(proxy_commands.size() > 0)
+		{
+			while(proxy_commands.size() > 0)
+			{
+				entry = proxy_commands.front();
+
+				//std::cerr << "send command: " << entry.command << "\n";
+
+				if(!channel.send(entry.command, 1000))
+				{
+					std::cerr << "command send timeout\n";
+					boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(1));
+					break;
+				}
+
+				reply.clear();
+
+				if(!channel.receive(reply, 1000))
+				{
+					std::cerr << "command receive timeout";
+					boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(1));
+					break;
+				}
+
+				//std::cerr << "send command reply: " << reply << "\n";
+
+				proxy_commands.pop_front();
+			}
+		}
+		else
+			boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(10));
+
+		//std::cerr << "next proxy interation\n";
 	}
 }
 

@@ -6,6 +6,8 @@
 #include "util.h"
 
 #include <string>
+#include <map>
+#include <deque>
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -23,6 +25,7 @@ class Espif
 		void benchmark(int length) const;
 		void image(int image_slot, const std::string &filename,
 				unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout) const;
+		void proxy();
 		void image_epaper(const std::string &filename) const;
 		std::string send(std::string args) const;
 		std::string multicast(const std::string &args);
@@ -33,10 +36,57 @@ class Espif
 
 	private:
 
+		class ProxySensorDataKey
+		{
+			public:
+
+				unsigned int bus;
+				std::string name;
+				std::string type;
+
+				int operator <(const ProxySensorDataKey &key) const
+				{
+					return(std::tie(this->bus, this->name, this->type) < std::tie(key.bus, key.name, key.type));
+				}
+		};
+
+		struct ProxySensorDataEntry
+		{
+			time_t time;
+			unsigned int id;
+			unsigned int address;
+			std::string unity;
+			double value;
+		};
+
+		typedef std::map<ProxySensorDataKey, ProxySensorDataEntry> ProxySensorData;
+
+		class ProxyThread
+		{
+			public:
+
+				ProxyThread(Espif &espif);
+				void operator ()();
+
+			private:
+
+				Espif &espif;
+		} proxy_thread_class;
+
+		struct ProxyCommandEntry
+		{
+			time_t time;
+			std::string command;
+		};
+
+		typedef std::deque<ProxyCommandEntry> ProxyCommands;
+
 		const EspifConfig config;
 		GenericSocket channel;
 		const Util util;
 		boost::random::mt19937 prn;
+		ProxySensorData proxy_sensor_data;
+		ProxyCommands proxy_commands;
 
 		void image_send_sector(int current_sector, const std::string &data,
 				unsigned int current_x, unsigned int current_y, unsigned int depth) const;
@@ -46,5 +96,6 @@ class Espif
 		void cie_uc_data(unsigned int data) const;
 		void cie_uc_data_string(const std::string valuestring) const;
 };
+
 
 #endif
