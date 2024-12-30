@@ -636,7 +636,7 @@ void Espif::ProxyThread::operator()()
 	std::string error;
 	std::string reply;
 	std::string time_string;
-	std::string service = std::string("name.slagter.erik.espproxy.") + espif.config.host;
+	std::string service = std::string("name.slagter.erik.proxy.espif.") + espif.config.host;
 	dBusGlue dbus_glue(service);
 
 	for(;;)
@@ -689,7 +689,7 @@ void Espif::ProxyThread::operator()()
 			}
 			else
 			{
-				if(interface == "name.slagter.erik.espproxy")
+				if(interface == "name.slagter.erik.proxy.espif")
 				{
 					if(method == "dump")
 					{
