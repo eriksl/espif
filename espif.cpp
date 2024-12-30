@@ -867,6 +867,18 @@ void Espif::proxy()
 			proxy_sensor_data[key] = data;
 		}
 
+		Espif::ProxyCommands::iterator it;
+
+		for(it = proxy_commands.begin(); it != proxy_commands.end(); it++)
+		{
+			if((time((time_t *)0) - it->time) > (5 * 60))
+			{
+				std::cerr << "erasing timed out command: " << it->command << ", timestamp: " << it->time << std::endl;
+				proxy_commands.erase(it);
+				it = proxy_commands.begin();
+			}
+		}
+
 		if(proxy_commands.size() > 0)
 		{
 			while(proxy_commands.size() > 0)
