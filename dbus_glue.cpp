@@ -12,6 +12,7 @@
 dBusGlue::dBusGlue(std::string bus) : bus_connection(nullptr), incoming_message(nullptr)
 {
 	dbus_error_init(&dbus_error);
+	int rv;
 
 	bus_connection = dbus_bus_get(DBUS_BUS_SYSTEM, &dbus_error);
 
@@ -21,11 +22,13 @@ dBusGlue::dBusGlue(std::string bus) : bus_connection(nullptr), incoming_message(
 	if(!bus_connection)
 		throw(hard_exception("dbus bus get failed (bus_connection = nullptr)"));
 
-	if(dbus_bus_request_name(bus_connection, bus.c_str(), DBUS_NAME_FLAG_DO_NOT_QUEUE, &dbus_error) != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
-		throw(hard_exception(std::string("dbus request name: not primary owner: ") + dbus_error.message));
+	rv = dbus_bus_request_name(bus_connection, bus.c_str(), DBUS_NAME_FLAG_DO_NOT_QUEUE, &dbus_error);
 
 	if(dbus_error_is_set(&dbus_error))
 		throw(hard_exception(std::string("dbus request name failed: ") + dbus_error.message));
+
+	if(rv != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+		throw(hard_exception("dbus request name: not primary owner: "));
 }
 
 bool dBusGlue::get_message(int *type, std::string *interface, std::string *method)
