@@ -799,7 +799,7 @@ void Espif::proxy()
 	ProxySensorDataKey key;
 	ProxySensorDataEntry data;
 	boost::smatch capture;
-	boost::regex re("sensor ([0-9]+)/([0-9]+)@([0-9a-fA-F]+): +([^,]+), +([^:]+): +[[]([0-9.U-]+)[]] +([a-zA-Z%]+)");
+	boost::regex re("sensor ([0-9]+)/([0-9]+)@([0-9a-fA-F]+): +([^,]+), +([^:]+): +[[]([0-9.U-]+)[]] +([a-zA-Z%]+)?");
 	boost::thread proxy_thread(proxy_thread_class);
 	struct ProxyCommandEntry entry;
 
