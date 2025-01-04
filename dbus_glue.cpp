@@ -31,6 +31,16 @@ dBusGlue::dBusGlue(std::string bus) : bus_connection(nullptr), incoming_message(
 		throw(hard_exception("dbus request name: not primary owner: "));
 }
 
+void dBusGlue::add_signal_filter(std::string interface)
+{
+	dbus_bus_add_match(bus_connection, (boost::format("type='%s',interface='%s'") % "signal" % interface).str().c_str(), &dbus_error);
+
+	dbus_connection_flush(bus_connection);
+
+	if(dbus_error_is_set(&dbus_error))
+		throw(hard_exception(std::string("dbus_bus_add_match failed: ") + dbus_error.message));
+}
+
 bool dBusGlue::get_message(int *type, std::string *interface, std::string *method)
 {
 	if(!dbus_connection_read_write_dispatch(bus_connection, -1))

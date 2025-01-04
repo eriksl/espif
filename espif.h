@@ -25,7 +25,7 @@ class Espif
 		void benchmark(int length) const;
 		void image(int image_slot, const std::string &filename,
 				unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout) const;
-		void proxy();
+		void run_proxy(const std::vector<std::string> &);
 		void image_epaper(const std::string &filename) const;
 		std::string send(std::string args) const;
 		std::string multicast(const std::string &args);
@@ -68,17 +68,19 @@ class Espif
 		{
 			public:
 
-				ProxyThread(Espif &espif);
+				ProxyThread(Espif &espif, const std::vector<std::string> &signal_ids);
 				void operator ()();
 
 			private:
 
 				Espif &espif;
-		} proxy_thread_class;
+				std::vector<std::string> signal_ids;
+		};
 
 		struct ProxyCommandEntry
 		{
 			time_t time;
+			std::string source;
 			std::string command;
 		};
 
@@ -90,6 +92,7 @@ class Espif
 		boost::random::mt19937 prn;
 		ProxySensorData proxy_sensor_data;
 		ProxyCommands proxy_commands;
+		ProxyThread *proxy_thread_class;
 
 		void image_send_sector(int current_sector, const std::string &data,
 				unsigned int current_x, unsigned int current_y, unsigned int depth) const;

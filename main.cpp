@@ -28,6 +28,7 @@ int main(int argc, const char **argv)
 	try
 	{
 		std::vector<std::string> host_args;
+		std::vector<std::string> proxy_signal_ids;
 		std::string host;
 		std::string args;
 		std::string command_port;
@@ -65,6 +66,7 @@ int main(int argc, const char **argv)
 			("benchmark,B",				po::bool_switch(&cmd_benchmark)->implicit_value(true),						"BENCHMARK")
 			("image,I",					po::bool_switch(&cmd_image)->implicit_value(true),							"SEND IMAGE")
 			("proxy,P",					po::bool_switch(&cmd_proxy)->implicit_value(true),							"START PROXY")
+			("proxy-signal-id,q",		po::value<std::vector<std::string> >(&proxy_signal_ids),					"PROXY signal ids to listen to")
 			("epaper-image,e",			po::bool_switch(&cmd_image_epaper)->implicit_value(true),					"SEND EPAPER IMAGE (uc8151d connected to host)")
 			("broadcast,b",				po::bool_switch(&cmd_broadcast)->implicit_value(true),						"BROADCAST SENDER send broadcast message")
 			("multicast,M",				po::bool_switch(&cmd_multicast)->implicit_value(true),						"MULTICAST SENDER send multicast message")
@@ -177,7 +179,7 @@ int main(int argc, const char **argv)
 			else
 			{
 				if(cmd_proxy)
-					espif.proxy();
+					espif.run_proxy(proxy_signal_ids);
 				else
 				{
 					start = -1;

@@ -14,6 +14,7 @@ class dBusGlue
 		dBusGlue(const dBusGlue &) = delete;
 
 		dBusGlue(std::string bus);
+		void add_signal_filter(std::string interface);
 		bool get_message(int *type = nullptr, std::string *interface = nullptr, std::string *method = nullptr);
 		bool receive_string(std::string &, std::string *error_message);
 		bool receive_uint32_uint32_string_string(uint32_t &, uint32_t &, std::string &, std::string &, std::string *error_message);
