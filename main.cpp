@@ -1,8 +1,11 @@
 #include "espif.h"
 #include "exception.h"
 
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <boost/program_options.hpp>
+#include <boost/tokenizer.hpp>
 
 enum
 {
@@ -21,12 +24,15 @@ static bool option_dontwait = false;
 static unsigned int option_broadcast_group_mask = 0;
 static unsigned int option_multicast_burst = 1;
 
-int main(int argc, const char **argv)
+int main(int argc_in, const char **argv_in)
 {
 	po::options_description	options("usage");
 
 	try
 	{
+		int current_argv_index;
+		const char *current_argv_pointer;
+		std::vector<std::string> argv;
 		std::vector<std::string> host_args;
 		std::vector<std::string> proxy_signal_ids;
 		std::string host;
@@ -56,6 +62,45 @@ int main(int argc, const char **argv)
 		bool cmd_read = false;
 		bool cmd_info = false;
 		unsigned int selected;
+
+		for(current_argv_index = 1; current_argv_index < argc_in; current_argv_index++)
+		{
+			current_argv_pointer = argv_in[current_argv_index];
+
+			if((strlen(current_argv_pointer) > 1) && (current_argv_pointer[0] == '@'))
+			{
+				std::string filename;
+				std::ifstream file;
+				std::stringstream stream;
+				std::string contents;
+				typedef boost::char_separator<char> separator_t;
+						separator_t separator(" \t\n");
+				typedef boost::tokenizer<separator_t> tokenizer_t;
+				tokenizer_t tokenizer(std::string(""), separator);
+
+				filename = std::string(&current_argv_pointer[1]);
+
+				file.open(filename);
+
+				if(!file.is_open())
+				{
+					std::cerr << "warning: cannot open include file \"" << filename << "\"\n";
+					continue;
+				}
+
+				stream << file.rdbuf();
+				contents = stream.str();
+
+				tokenizer.assign(contents);
+
+				for(tokenizer_t::const_iterator token = tokenizer.begin(); token != tokenizer.end(); token++)
+				argv.push_back(*token);
+
+				file.close();
+			}
+			else
+				argv.push_back(std::string(current_argv_pointer));
+		}
 
 		options.add_options()
 			("info,i",					po::bool_switch(&cmd_info)->implicit_value(true),							"INFO")
@@ -94,7 +139,7 @@ int main(int argc, const char **argv)
 		positional_options.add("host", -1);
 
 		po::variables_map varmap;
-		auto parsed = po::command_line_parser(argc, argv).options(options).positional(positional_options).run();
+		auto parsed = po::command_line_parser(argv).options(options).positional(positional_options).run();
 		po::store(parsed, varmap);
 		po::notify(varmap);
 
