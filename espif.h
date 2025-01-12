@@ -18,6 +18,7 @@ class Espif
 
 		Espif() = delete;
 		Espif(const EspifConfig &);
+		~Espif();
 
 		void read(const std::string &filename, int sector, int sectors) const;
 		void write(const std::string filename, int sector, bool simulate, bool otawrite) const;

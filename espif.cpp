@@ -36,6 +36,10 @@ Espif::Espif(const EspifConfig &config_in)
 	prn.seed(tv.tv_usec);
 }
 
+Espif::~Espif()
+{
+}
+
 void Espif::read(const std::string &filename, int sector, int sectors) const
 {
 	int file_fd, offset, current, retries;
