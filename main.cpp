@@ -69,7 +69,7 @@ int main(int argc_in, const char **argv_in)
 
 			if((strlen(current_argv_pointer) > 1) && (current_argv_pointer[0] == '@'))
 			{
-				std::string filename;
+				std::string include_filename;
 				std::ifstream file;
 				std::stringstream stream;
 				std::string contents;
@@ -78,13 +78,13 @@ int main(int argc_in, const char **argv_in)
 				typedef boost::tokenizer<separator_t> tokenizer_t;
 				tokenizer_t tokenizer(std::string(""), separator);
 
-				filename = std::string(&current_argv_pointer[1]);
+				include_filename = std::string(&current_argv_pointer[1]);
 
-				file.open(filename);
+				file.open(include_filename);
 
 				if(!file.is_open())
 				{
-					std::cerr << "warning: cannot open include file \"" << filename << "\"\n";
+					std::cerr << "warning: cannot open include file \"" << include_filename << "\"\n";
 					continue;
 				}
 

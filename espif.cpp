@@ -629,9 +629,9 @@ Espif::ProxyThread::ProxyThread(Espif &espif_in, const std::vector<std::string> 
 
 void Espif::ProxyThread::operator()()
 {
-	int type;
-	std::string interface;
-	std::string method;
+	int message_type;
+	std::string message_interface;
+	std::string message_method;
 	std::string error;
 	std::string reply;
 	std::string time_string;
@@ -651,18 +651,18 @@ void Espif::ProxyThread::operator()()
 		{
 			try
 			{
-				if(!dbus_glue.get_message(&type, &interface, &method))
+				if(!dbus_glue.get_message(&message_type, &message_interface, &message_method))
 					throw(transient_exception("get message failed"));
 
-				switch(type)
+				switch(message_type)
 				{
 					case(DBUS_MESSAGE_TYPE_METHOD_CALL):
 					{
-						std::cerr << boost::format("message received, interface: %s, method: %s\n") % interface % method;
+						std::cerr << boost::format("message received, interface: %s, method: %s\n") % message_interface % message_method;
 
-						if(interface == "org.freedesktop.DBus.Introspectable")
+						if(message_interface == "org.freedesktop.DBus.Introspectable")
 						{
-							if(method == "Introspect")
+							if(message_method == "Introspect")
 							{
 								reply += std::string("") +
 											"<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" \"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n" +
@@ -715,9 +715,9 @@ void Espif::ProxyThread::operator()()
 						}
 						else
 						{
-							if(interface == dbus_service_id)
+							if((message_interface == dbus_service_id) || (message_interface == ""))
 							{
-								if(method == "dump")
+								if(message_method == "dump")
 								{
 									reply += "SENSOR DATA\n\n";
 
@@ -746,7 +746,7 @@ void Espif::ProxyThread::operator()()
 								}
 								else
 								{
-									if(method == "get_sensor_data")
+									if(message_method == "get_sensor_data")
 									{
 										unsigned int module;
 										unsigned int bus;
@@ -771,7 +771,7 @@ void Espif::ProxyThread::operator()()
 									}
 									else
 									{
-										if(method == "push_command")
+										if(message_method == "push_command")
 										{
 											std::string command;
 											ProxyCommandEntry entry;
@@ -794,7 +794,7 @@ void Espif::ProxyThread::operator()()
 								}
 							}
 							else
-								throw(transient_exception(dbus_glue.inform_error((boost::format("message not for our interface: %s") % interface).str())));
+								throw(transient_exception(dbus_glue.inform_error((boost::format("message not for our interface: %s") % message_interface).str())));
 						}
 
 						break;
@@ -802,11 +802,11 @@ void Espif::ProxyThread::operator()()
 
 					case(DBUS_MESSAGE_TYPE_SIGNAL):
 					{
-						std::cerr << boost::format("signal received, interface: %s, method: %s\n") % interface % method;
+						std::cerr << boost::format("signal received, interface: %s, method: %s\n") % message_interface % message_method;
 
-						if(interface == "org.freedesktop.DBus")
+						if(message_interface == "org.freedesktop.DBus")
 						{
-							if(method == "NameAcquired")
+							if(message_method == "NameAcquired")
 								std::cerr << "name on dbus acquired\n";
 						}
 						else
@@ -817,14 +817,14 @@ void Espif::ProxyThread::operator()()
 							{
 								std::string interface_check = (boost::format("%s.%s.%s") % dbus_service_id % "signal" % *it).str();
 
-								if(interface == interface_check)
+								if(message_interface == interface_check)
 									break;
 							}
 
 							if(it == signal_ids.end())
 								throw(transient_exception(dbus_glue.inform_error(std::string("signal to unknown interface received"))));
 
-							if(method == "push_command")
+							if(message_method == "push_command")
 							{
 								std::string command;
 								ProxyCommandEntry entry;
@@ -847,7 +847,7 @@ void Espif::ProxyThread::operator()()
 
 					default:
 					{
-						throw(transient_exception(boost::format("message of unknown type: %u") % type));
+						throw(transient_exception(boost::format("message of unknown type: %u") % message_type));
 					}
 				}
 			}
