@@ -2,6 +2,7 @@
 
 %include <std_string.i>
 %include <exception.i>
+%include <std_except.i>
 
 %{
 #include <iostream>
