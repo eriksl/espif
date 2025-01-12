@@ -1,8 +1,8 @@
 #include "espif.h"
 #include "packet.h"
 #include "exception.h"
-#include "dbus_glue.h"
 
+#include <dbus-tiny.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
@@ -633,42 +633,38 @@ Espif::ProxyThread::ProxyThread(Espif &espif_in, const std::vector<std::string> 
 
 void Espif::ProxyThread::operator()()
 {
-	int message_type;
+	std::string message_type;
 	std::string message_interface;
 	std::string message_method;
-	std::string error;
 	std::string reply;
 	std::string time_string;
 	std::string service = (boost::format("%s.%s") % dbus_service_id % espif.config.host).str();
 
 	try
 	{
-		dBusGlue dbus_glue(service);
+		DbusTinyServer dbus_tiny_server(service);
 
 		for(const auto &it : signal_ids)
 		{
-			std::cerr << "adding signal filter: " << it << std::endl;
-			dbus_glue.add_signal_filter((boost::format("%s.%s.%s") % dbus_service_id % "signal" % it).str());
+			std::cerr << "registering signal: " << it << std::endl;
+			dbus_tiny_server.register_signal((boost::format("%s.%s.%s") % dbus_service_id % "signal" % it).str());
 		}
 
 		for(;;)
 		{
 			try
 			{
-				if(!dbus_glue.get_message(&message_type, &message_interface, &message_method))
-					throw(transient_exception("get message failed"));
+				dbus_tiny_server.get_message(message_type, message_interface, message_method);
 
-				switch(message_type)
+				if(message_type == "method call")
 				{
-					case(DBUS_MESSAGE_TYPE_METHOD_CALL):
-					{
-						std::cerr << boost::format("message received, interface: %s, method: %s\n") % message_interface % message_method;
+					std::cerr << boost::format("message received, interface: %s, method: %s\n") % message_interface % message_method;
 
-						if(message_interface == "org.freedesktop.DBus.Introspectable")
+					if(message_interface == "org.freedesktop.DBus.Introspectable")
+					{
+						if(message_method == "Introspect")
 						{
-							if(message_method == "Introspect")
-							{
-								reply += std::string("") +
+							reply += std::string("") +
 											"<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\" \"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n" +
 											"<node>\n" +
 											"	<interface name=\"org.freedesktop.DBus.Introspectable\">\n" +
@@ -697,170 +693,143 @@ void Espif::ProxyThread::operator()()
 											"		</method>\n" +
 											"	</interface>\n";
 
-								for(const auto &it : signal_ids)
-								{
-									reply += std::string("") +
+							for(const auto &it : signal_ids)
+							{
+								reply += std::string("") +
 											"	<interface name=\"" + dbus_service_id + ".signal." + it + "\">\n" +
 											"		<signal name=\"push_command\">\n" +
 											"			<arg name=\"command\" type=\"s\"/>\n" +
 											"		</signal>\n" +
 											"	</interface>\n";
-								}
-
-								reply += "</node>\n";
-
-								if(!dbus_glue.send_string(reply))
-									throw(transient_exception(dbus_glue.inform_error(std::string("introspection send reply error"))));
-
-								reply.clear();
 							}
-							else
-								throw(transient_exception(dbus_glue.inform_error(std::string("unknown introspection method called"))));
+
+							reply += "</node>\n";
+
+							dbus_tiny_server.send_string(reply);
+							reply.clear();
 						}
 						else
-						{
-							if((message_interface == dbus_service_id) || (message_interface == ""))
-							{
-								if(message_method == "dump")
-								{
-									reply += "SENSOR DATA\n\n";
-
-									for(const auto &it : espif.proxy_sensor_data)
-									{
-										Util::time_to_string(time_string, it.second.time);
-
-										reply += (boost::format("> %1u %1u %-16s %-16s / %2u @ %02x %8.2f %-3s %s\n") %
-													it.first.module % it.first.bus % it.first.name % it.first.type %
-													it.second.id % it.second.address % it.second.value % it.second.unity % time_string).str();
-									}
-
-									reply += "\nCOMMANDS\n\n";
-
-									for(const auto &it : espif.proxy_commands)
-									{
-										Util::time_to_string(time_string, it.time);
-
-										reply += (boost::format("> %s from %s at %s\n") % it.command % it.source % time_string).str();
-									}
-
-									if(!dbus_glue.send_string(reply))
-										throw(transient_exception(dbus_glue.inform_error(std::string("send reply error"))));
-
-									reply.clear();
-								}
-								else
-								{
-									if(message_method == "get_sensor_data")
-									{
-										unsigned int module;
-										unsigned int bus;
-										std::string name;
-										std::string type;
-										ProxySensorDataKey key;
-										ProxySensorData::const_iterator it;
-
-										if(!dbus_glue.receive_uint32_uint32_string_string(module, bus, name, type, &error))
-											throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
-
-										key.module = module;
-										key.bus = bus;
-										key.name = name;
-										key.type = type;
-
-										if((it = espif.proxy_sensor_data.find(key)) == espif.proxy_sensor_data.end())
-											throw(transient_exception(dbus_glue.inform_error((boost::format("not found: %u/%u/%s/%s") % key.module % key.bus % key.name % key.type).str())));
-
-										if(!dbus_glue.send_uint64_uint32_uint32_string_double(it->second.time, it->second.id, it->second.address, it->second.unity, it->second.value))
-											throw(transient_exception(dbus_glue.inform_error(std::string("reply error"))));
-									}
-									else
-									{
-										if(message_method == "push_command")
-										{
-											std::string command;
-											ProxyCommandEntry entry;
-
-											if(!dbus_glue.receive_string(command, &error))
-												throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
-
-											entry.time = time((time_t *)0);
-											entry.source = "message";
-											entry.command = command;
-
-											espif.proxy_commands.push_back(entry);
-
-											if(!dbus_glue.send_string("ok"))
-												throw(transient_exception(dbus_glue.inform_error(std::string("reply error"))));
-										}
-										else
-											throw(transient_exception(dbus_glue.inform_error(std::string("unknown method called"))));
-									}
-								}
-							}
-							else
-								throw(transient_exception(dbus_glue.inform_error((boost::format("message not for our interface: %s") % message_interface).str())));
-						}
-
-						break;
+							throw(transient_exception(dbus_tiny_server.inform_error(std::string("unknown introspection method called"))));
 					}
-
-					case(DBUS_MESSAGE_TYPE_SIGNAL):
+					else if((message_interface == dbus_service_id) || (message_interface == ""))
 					{
-						std::cerr << boost::format("signal received, interface: %s, method: %s\n") % message_interface % message_method;
-
-						if(message_interface == "org.freedesktop.DBus")
+						if(message_method == "dump")
 						{
-							if(message_method == "NameAcquired")
-								std::cerr << "name on dbus acquired\n";
+							reply += "SENSOR DATA\n\n";
+
+							for(const auto &it : espif.proxy_sensor_data)
+							{
+								Util::time_to_string(time_string, it.second.time);
+
+								reply += (boost::format("> %1u %1u %-16s %-16s / %2u @ %02x %8.2f %-3s %s\n") %
+											it.first.module % it.first.bus % it.first.name % it.first.type %
+											it.second.id % it.second.address % it.second.value % it.second.unity % time_string).str();
+							}
+
+							reply += "\nCOMMANDS\n\n";
+
+							for(const auto &it : espif.proxy_commands)
+							{
+								Util::time_to_string(time_string, it.time);
+
+								reply += (boost::format("> %s from %s at %s\n") % it.command % it.source % time_string).str();
+							}
+
+							dbus_tiny_server.send_string(reply);
+							reply.clear();
+						}
+						else if(message_method == "get_sensor_data")
+						{
+							unsigned int module;
+							unsigned int bus;
+							std::string name;
+							std::string type;
+							ProxySensorDataKey key;
+							ProxySensorData::const_iterator it;
+
+							dbus_tiny_server.receive_uint32_uint32_string_string(module, bus, name, type);
+
+							key.module = module;
+							key.bus = bus;
+							key.name = name;
+							key.type = type;
+
+							if((it = espif.proxy_sensor_data.find(key)) == espif.proxy_sensor_data.end())
+								throw(transient_exception(dbus_tiny_server.inform_error((boost::format("not found: %u/%u/%s/%s") % key.module % key.bus % key.name % key.type).str())));
+
+							dbus_tiny_server.send_uint64_uint32_uint32_string_double(it->second.time, it->second.id, it->second.address, it->second.unity, it->second.value);
+						}
+						else if(message_method == "push_command")
+						{
+							std::string command;
+							ProxyCommandEntry entry;
+
+							command = dbus_tiny_server.receive_string();
+
+							entry.time = time((time_t *)0);
+							entry.source = "message";
+							entry.command = command;
+
+							espif.proxy_commands.push_back(entry);
+
+							dbus_tiny_server.send_string("ok");
 						}
 						else
+							throw(transient_exception(dbus_tiny_server.inform_error(std::string("unknown method called"))));
+					}
+					else
+						throw(transient_exception(dbus_tiny_server.inform_error((boost::format("message not for our interface: %s") % message_interface).str())));
+				}
+				else if(message_type == "signal")
+				{
+					std::cerr << boost::format("signal received, interface: %s, method: %s\n") % message_interface % message_method;
+
+					if(message_interface == "org.freedesktop.DBus")
+					{
+						if(message_method == "NameAcquired")
+							std::cerr << "name on dbus acquired\n";
+					}
+					else
+					{
+						std::vector<std::string>::const_iterator it;
+
+						for(it = signal_ids.begin(); it != signal_ids.end(); it++)
 						{
-							std::vector<std::string>::const_iterator it;
+							std::string interface_check = (boost::format("%s.%s.%s") % dbus_service_id % "signal" % *it).str();
 
-							for(it = signal_ids.begin(); it != signal_ids.end(); it++)
-							{
-								std::string interface_check = (boost::format("%s.%s.%s") % dbus_service_id % "signal" % *it).str();
-
-								if(message_interface == interface_check)
-									break;
-							}
-
-							if(it == signal_ids.end())
-								throw(transient_exception(dbus_glue.inform_error(std::string("signal to unknown interface received"))));
-
-							if(message_method == "push_command")
-							{
-								std::string command;
-								ProxyCommandEntry entry;
-
-								if(!dbus_glue.receive_string(command, &error))
-									throw(transient_exception(dbus_glue.inform_error(std::string("parameter error: ") + error)));
-
-								entry.time = time((time_t *)0);
-								entry.source = "signal";
-								entry.command = command;
-
-								espif.proxy_commands.push_back(entry);
-							}
-							else
-								throw(transient_exception(dbus_glue.inform_error(std::string("unknown signal received"))));
+							if(message_interface == interface_check)
+								break;
 						}
 
-						break;
-					}
+						if(it == signal_ids.end())
+							throw(transient_exception(dbus_tiny_server.inform_error(std::string("signal to unknown interface received"))));
 
-					default:
-					{
-						throw(transient_exception(boost::format("message of unknown type: %u") % message_type));
+						if(message_method == "push_command")
+						{
+							std::string command;
+							ProxyCommandEntry entry;
+
+							command = dbus_tiny_server.receive_string();
+
+							entry.time = time((time_t *)0);
+							entry.source = "signal";
+							entry.command = command;
+
+							espif.proxy_commands.push_back(entry);
+						}
+						else
+							throw(transient_exception(dbus_tiny_server.inform_error(std::string("unknown signal received"))));
 					}
 				}
+				else
+					throw(transient_exception(boost::format("message of unknown type: %u") % message_type));
 			}
 			catch(const transient_exception &e)
 			{
 				std::cerr << boost::format("warning: %s\n") % e.what();
 			}
 
-			dbus_glue.reset();
+			dbus_tiny_server.reset();
 		}
 	}
 	catch(const hard_exception &e)
