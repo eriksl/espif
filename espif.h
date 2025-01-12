@@ -26,7 +26,11 @@ class Espif
 		void benchmark(int length) const;
 		void image(int image_slot, const std::string &filename,
 				unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout) const;
+#ifdef SWIG
 		void run_proxy(const std::vector<std::string> &);
+#else
+		__attribute__((noreturn)) void run_proxy(const std::vector<std::string> &);
+#endif
 		void image_epaper(const std::string &filename) const;
 		std::string send(std::string args) const;
 		std::string multicast(const std::string &args);
@@ -70,7 +74,11 @@ class Espif
 			public:
 
 				ProxyThread(Espif &espif, const std::vector<std::string> &signal_ids);
+#ifdef SWIG
 				void operator ()();
+#else
+				__attribute__((noreturn)) void operator ()();
+#endif
 
 			private:
 
