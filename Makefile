@@ -11,30 +11,6 @@ else
 	MAKEMINS := -s
 endif
 
-CCWARNINGS		:=	-Wall -Wextra -Werror \
-						-Wformat-overflow=2 -Wshift-overflow=2 -Wimplicit-fallthrough=5 \
-						-Wformat-signedness -Wformat-truncation=2 \
-						-Wstringop-overflow=4 -Wunused-const-variable=2 -Walloca \
-						-Warray-bounds=2 -Wswitch-bool -Wsizeof-array-argument \
-						-Wduplicated-branches -Wduplicated-cond -Wlto-type-mismatch -Wnull-dereference \
-						-Wdangling-else -Wdangling-pointer=2 \
-						-Wpacked -Wfloat-equal -Winit-self -Wmissing-include-dirs \
-						-Wmissing-noreturn -Wbool-compare \
-						-Wsuggest-attribute=noreturn -Wsuggest-attribute=format -Wmissing-format-attribute \
-						-Wuninitialized -Wtrampolines -Wframe-larger-than=2048 \
-						-Wunsafe-loop-optimizations -Wshadow -Wpointer-arith -Wbad-function-cast \
-						-Wcast-qual -Wwrite-strings -Wsequence-point -Wlogical-op -Wlogical-not-parentheses \
-						-Wredundant-decls -Wvla -Wdisabled-optimization \
-						-Wunreachable-code -Wparentheses -Wdiscarded-array-qualifiers \
-						-Wmissing-prototypes -Wold-style-definition -Wold-style-declaration -Wmissing-declarations \
-						-Wcast-align -Winline -Wmultistatement-macros -Warray-bounds=2 \
-						\
-						-Wno-error=cast-qual \
-						-Wno-error=unsafe-loop-optimizations \
-						\
-						-Wno-packed \
-						-Wno-unused-parameter \
-
 CPP				:=	g++
 
 MAGICK_CFLAGS	!=	pkg-config --cflags Magick++
@@ -79,11 +55,11 @@ $(SWIG_SRC):	$(HDRS)
 
 %.o:			%.cpp
 				$(VECHO) "CPP $< -> $@"
-				$(Q) $(CPP) $(CPPFLAGS) -c $< -o $@
+				$(Q) $(CPP) @gcc-warnings $(CPPFLAGS) -c $< -o $@
 
 $(BIN):			$(OBJS) main.o
 				$(VECHO) "LD $(OBJS) main.o -> $@"
-				$(Q) $(CPP) $(CPPFLAGS) $(OBJS) main.o -o $@
+				$(Q) $(CPP) @gcc-warnings $(CPPFLAGS) $(OBJS) main.o -o $@
 
 $(SWIG_WRAP_SRC) $(SWIG_PM): $(SWIG_SRC)
 				$(VECHO) "SWIG $< -> $@"
