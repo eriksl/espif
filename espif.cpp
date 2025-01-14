@@ -956,8 +956,10 @@ void Espif::run_proxy(bool read_uart, bool read_uart_hex, const std::vector<std:
 				continue;
 			}
 
-			if(reply.length() > 0)
-				uart_data = reply;
+			if(uart_data.length() > 4096) // FIXME prevent memory runaway when not fetched
+				uart_data.clear();
+
+			uart_data.append(reply);
 		}
 
 		Espif::ProxyCommands::iterator it;
