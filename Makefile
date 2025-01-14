@@ -24,8 +24,8 @@ DBUS_TINY_LIBS		:=	-L$(PWD)/DBUS-Tiny -Wl,-rpath=$(CWD)/DBUS-Tiny -ldbus-tiny
 CPPFLAGS		:= -O3 -fPIC -Wall -Wextra -Werror -Wframe-larger-than=65536 -Wno-error=ignored-qualifiers $(MAGICK_CFLAGS) $(DBUS_TINY_CFLAGS) $(DBUS_CFLAGS) \
 					-lssl -lcrypto -lpthread -lboost_system -lboost_program_options -lboost_regex -lboost_thread -lboost_chrono $(MAGICK_LIBS) $(DBUS_TINY_LIBS) $(DBUS_LIBS) \
 
-OBJS			:= espif.o espifconfig.o generic_socket.o packet.o util.o exception.o dbus_glue.o
-HDRS			:= espif.h espifconfig.h generic_socket.h packet.h util.h exception.h dbus_glue.h
+OBJS			:= espif.o espifconfig.o generic_socket.o packet.o util.o exception.o
+HDRS			:= espif.h espifconfig.h generic_socket.h packet.h util.h exception.h
 BIN				:= espif
 SWIG_DIR		:= Esp
 SWIG_SRC		:= Esp\:\:IF.i
