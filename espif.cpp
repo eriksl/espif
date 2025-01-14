@@ -957,7 +957,7 @@ void Espif::run_proxy(const std::vector<std::string> &proxy_signal_ids)
 
 				if(!channel.receive(reply, 1000))
 				{
-					std::cerr << "command receive timeout";
+					std::cerr << "command receive timeout\n";
 					boost::this_thread::sleep_for(boost::chrono::duration<unsigned int>(1));
 					continue;
 				}
