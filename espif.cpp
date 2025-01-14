@@ -824,6 +824,10 @@ void Espif::ProxyThread::operator()()
 				else
 					throw(transient_exception(boost::format("message of unknown type: %u") % message_type));
 			}
+			catch(const DbusTinyException &e)
+			{
+				std::cerr << boost::format("libdbus-tiny warning: %s\n") % e.what();
+			}
 			catch(const transient_exception &e)
 			{
 				std::cerr << boost::format("warning: %s\n") % e.what();
