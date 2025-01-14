@@ -50,6 +50,7 @@ int main(int argc_in, const char **argv_in)
 		bool noreset = false;
 		bool notemp = false;
 		bool otawrite = false;
+		bool proxy_read_uart = false;
 		bool cmd_write = false;
 		bool cmd_simulate = false;
 		bool cmd_verify = false;
@@ -112,6 +113,7 @@ int main(int argc_in, const char **argv_in)
 			("image,I",					po::bool_switch(&cmd_image)->implicit_value(true),							"SEND IMAGE")
 			("proxy,P",					po::bool_switch(&cmd_proxy)->implicit_value(true),							"START PROXY")
 			("proxy-signal-id,q",		po::value<std::vector<std::string> >(&proxy_signal_ids),					"PROXY signal ids to listen to")
+			("proxy-read-uart,U",		po::bool_switch(&proxy_read_uart)->implicit_value(true),					"PROXY also frequently fetch uart data")
 			("epaper-image,e",			po::bool_switch(&cmd_image_epaper)->implicit_value(true),					"SEND EPAPER IMAGE (uc8151d connected to host)")
 			("broadcast,b",				po::bool_switch(&cmd_broadcast)->implicit_value(true),						"BROADCAST SENDER send broadcast message")
 			("multicast,M",				po::bool_switch(&cmd_multicast)->implicit_value(true),						"MULTICAST SENDER send multicast message")
@@ -224,7 +226,7 @@ int main(int argc_in, const char **argv_in)
 			else
 			{
 				if(cmd_proxy)
-					espif.run_proxy(proxy_signal_ids);
+					espif.run_proxy(proxy_read_uart, proxy_signal_ids);
 				else
 				{
 					start = -1;

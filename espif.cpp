@@ -627,7 +627,8 @@ void Espif::image(int image_slot, const std::string &filename,
 	}
 }
 
-Espif::ProxyThread::ProxyThread(Espif &espif_in, const std::vector<std::string> &signal_ids_in) : espif(espif_in), signal_ids(signal_ids_in)
+Espif::ProxyThread::ProxyThread(Espif &espif_in, const std::vector<std::string> &signal_ids_in)
+	: espif(espif_in), signal_ids(signal_ids_in)
 {
 }
 
@@ -686,6 +687,9 @@ void Espif::ProxyThread::operator()()
 											"			<arg name=\"address\" type=\"u\" direction=\"out\"/>\n" +
 											"			<arg name=\"unity\" type=\"s\" direction=\"out\"/>\n" +
 											"			<arg name=\"value\" type=\"d\" direction=\"out\"/>\n" +
+											"		</method>\n" +
+											"		<method name=\"get_uart_data\">\n" +
+											"			<arg name=\"data\" type=\"s\" direction=\"out\"/>\n" +
 											"		</method>\n" +
 											"		<method name=\"push_command\">\n" +
 											"			<arg name=\"command\" type=\"s\" direction=\"in\"/>\n" +
@@ -758,6 +762,12 @@ void Espif::ProxyThread::operator()()
 								throw(transient_exception(dbus_tiny_server.inform_error((boost::format("not found: %u/%u/%s/%s") % key.module % key.bus % key.name % key.type).str())));
 
 							dbus_tiny_server.send_uint64_uint32_uint32_string_double(it->second.time, it->second.id, it->second.address, it->second.unity, it->second.value);
+						}
+						else if(message_method == "get_uart_data")
+						{
+							std::string data = espif.uart_data;
+							espif.uart_data.clear();
+							dbus_tiny_server.send_string(data);
 						}
 						else if(message_method == "push_command")
 						{
@@ -843,7 +853,7 @@ void Espif::ProxyThread::operator()()
 	}
 }
 
-void Espif::run_proxy(const std::vector<std::string> &proxy_signal_ids)
+void Espif::run_proxy(bool read_uart, const std::vector<std::string> &signal_ids)
 {
 	std::string command, reply, line, time_string;
 	unsigned int pos;
@@ -853,7 +863,7 @@ void Espif::run_proxy(const std::vector<std::string> &proxy_signal_ids)
 	boost::regex re("sensor ([0-9]+)/([0-9]+)@([0-9a-fA-F]+): +([^,]+), +([^:]+): +[[]([0-9.U-]+)[]] +([a-zA-Z%]+)?");
 	struct ProxyCommandEntry entry;
 
-	proxy_thread_class = new ProxyThread(*this, proxy_signal_ids);
+	proxy_thread_class = new ProxyThread(*this, signal_ids);
 	boost::thread proxy_thread(*proxy_thread_class);
 	proxy_thread.detach();
 
@@ -926,6 +936,28 @@ void Espif::run_proxy(const std::vector<std::string> &proxy_signal_ids)
 			}
 
 			proxy_sensor_data[key] = data;
+		}
+
+		if(read_uart)
+		{
+			command = "ur";
+
+			if(!channel.send(command, 10000))
+			{
+				std::cerr << "uart data send timeout\n";
+				continue;
+			}
+
+			reply.clear();
+
+			if(!channel.receive(reply, 10000))
+			{
+				std::cerr << "uart receive timeout\n";
+				continue;
+			}
+
+			if(reply.length() > 0)
+				uart_data = reply;
 		}
 
 		Espif::ProxyCommands::iterator it;
