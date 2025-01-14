@@ -853,7 +853,7 @@ void Espif::ProxyThread::operator()()
 	}
 }
 
-void Espif::run_proxy(bool read_uart, const std::vector<std::string> &signal_ids)
+void Espif::run_proxy(bool read_uart, bool read_uart_hex, const std::vector<std::string> &signal_ids)
 {
 	std::string command, reply, line, time_string;
 	unsigned int pos;
@@ -940,7 +940,7 @@ void Espif::run_proxy(bool read_uart, const std::vector<std::string> &signal_ids
 
 		if(read_uart)
 		{
-			command = "ur";
+			command = read_uart_hex ? "urh" : "ur";
 
 			if(!channel.send(command, 10000))
 			{

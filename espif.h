@@ -27,9 +27,9 @@ class Espif
 		void image(int image_slot, const std::string &filename,
 				unsigned int dim_x, unsigned int dim_y, unsigned int depth, int image_timeout) const;
 #ifdef SWIG
-		void run_proxy(bool read_uart, const std::vector<std::string> &);
+		void run_proxy(bool read_uart, bool read_uart_hex, const std::vector<std::string> &);
 #else
-		__attribute__((noreturn)) void run_proxy(bool read_uart, const std::vector<std::string> &);
+		__attribute__((noreturn)) void run_proxy(bool read_uart, bool read_uart_hex, const std::vector<std::string> &);
 #endif
 		void image_epaper(const std::string &filename) const;
 		std::string send(std::string args) const;
@@ -84,6 +84,7 @@ class Espif
 
 				Espif &espif;
 				bool read_uart;
+				bool read_uart_hex;
 				std::vector<std::string> signal_ids;
 		};
 
